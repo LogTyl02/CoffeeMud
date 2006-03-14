@@ -1,0 +1,230 @@
+package com.planet_ink.coffee_mud.CharClasses;
+import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Areas.interfaces.*;
+import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
+import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
+import com.planet_ink.coffee_mud.Commands.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Exits.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Locales.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.Races.interfaces.*;
+
+import java.util.*;
+
+
+/* 
+   Copyright 2000-2006 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+public class Minstrel extends StdCharClass
+{
+	public String ID(){return "Minstrel";}
+	public String name(){return "Minstrel";}
+	public String baseClass(){return "Bard";}
+	public int getMaxHitPointsLevel(){return 18;}
+	public int getBonusPracLevel(){return 1;}
+	public int getBonusAttackLevel(){return 1;}
+	public int getAttackAttribute(){return CharStats.STAT_CHARISMA;}
+	public int getLevelsPerBonusDamage(){ return 4;}
+	public int getHPDivisor(){return 3;}
+	public int getHPDice(){return 2;}
+	public int getHPDie(){return 6;}
+	public int getManaDivisor(){return 4;}
+	public int getManaDice(){return 1;}
+	public int getManaDie(){return 6;}
+	private static boolean abilitiesLoaded=false;
+	public boolean loaded(){return abilitiesLoaded;}
+	public void setLoaded(boolean truefalse){abilitiesLoaded=truefalse;};
+	protected String armorFailMessage(){return "<S-NAME> armor make(s) <S-HIM-HER> mess up <S-HIS-HER> <SKILL>!";}
+	public int allowedArmorLevel(){return CharClass.ARMOR_NONMETAL;}
+	public int allowedWeaponLevel(){return CharClass.WEAPONS_THIEFLIKE;}
+	private HashSet disallowedWeapons=buildDisallowedWeaponClasses();
+	protected HashSet disallowedWeaponClasses(MOB mob){return disallowedWeapons;}
+
+	public Minstrel()
+	{
+		super();
+		maxStatAdj[CharStats.STAT_CHARISMA]=4;
+		maxStatAdj[CharStats.STAT_INTELLIGENCE]=4;
+		if(!loaded())
+		{
+			setLoaded(true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Ranged",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Sword",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Specialization_Natural",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Recall",50,true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Write",50,true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Swim",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Climb",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"InstrumentMaking",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Song_Nothing",100,true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Play_Tempo",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Play_Break",100,true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Play_Woods",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Skill_Dirt",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Play_Flutes",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Play_Rhythm",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Play_Drums",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Play_March",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Ranger_FindWater",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Play_Harps",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Play_Background",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_TuneInstrument",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_WandUse",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Play_Cymbals",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Play_Melody",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Thief_TrophyCount",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Play_Guitars",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Play_LoveSong",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Song_Armor",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Play_Clarinets",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Play_Carol",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Fighter_Rescue",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Play_Violins",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Play_Blues",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Skill_Dodge",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Song_Serenity",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Play_Oboes",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Play_Ballad",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Skill_InstrumentBash",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Play_Horns",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Play_Retreat",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Play_Charge",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Thief_Listen",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Play_Xylophones",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Play_Reveille",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Play_Symphony",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Skill_Parry",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Play_Trumpets",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Play_Dirge",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Play_Ditty",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Play_Pianos",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Play_Solo",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_Attack2",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Song_Quickness",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_EscapeBonds",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Play_Harmonicas",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Play_Lullabies",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Song_Thanks",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Skill_Feint",true);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Play_Tubas",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Play_Accompaniment",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Play_Spiritual",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Paladin_Defend",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Play_Organs",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Play_Tribal",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Play_Harmony",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Play_Trombones",false);
+			CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Play_Mystical",false);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Play_Battlehymn",true);
+
+			CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Skill_Conduct",true);
+		}
+	}
+
+	public int availabilityCode(){return Area.THEME_FANTASY;}
+
+	public void grantAbilities(MOB mob, boolean isBorrowedClass)
+	{
+		super.grantAbilities(mob,isBorrowedClass);
+		if(mob.playerStats()==null)
+		{
+			Vector V=CMLib.ableMapper().getUpToLevelListings(ID(),
+												mob.charStats().getClassLevel(ID()),
+												false,
+												false);
+			for(Enumeration a=V.elements();a.hasMoreElements();)
+			{
+				Ability A=CMClass.getAbility((String)a.nextElement());
+				if((A!=null)
+				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SONG)
+				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
+					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProfficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+			}
+		}
+	}
+
+	protected boolean weaponCheck(MOB mob, int sourceCode, Environmental E)
+	{
+		if(E instanceof MusicalInstrument)
+			return true;
+		return super.weaponCheck(mob,sourceCode,E);
+	}
+	public String statQualifications(){return "Charisma 9+, Intelligence 9+";}
+	public boolean qualifiesForThisClass(MOB mob, boolean quiet)
+	{
+		if(mob.baseCharStats().getStat(CharStats.STAT_CHARISMA) <= 8)
+		{
+			if(!quiet)
+				mob.tell("You need at least a 9 Charisma to become a Minstrel.");
+			return false;
+		}
+		if(mob.baseCharStats().getStat(CharStats.STAT_INTELLIGENCE) <= 8)
+		{
+			if(!quiet)
+				mob.tell("You need at least a 9 Intelligence to become a Minstrel.");
+			return false;
+		}
+		return super.qualifiesForThisClass(mob,quiet);
+	}
+	public void affectCharStats(MOB affectedMOB, CharStats affectableStats)
+	{
+		super.affectCharStats(affectedMOB,affectableStats);
+		affectableStats.setStat(CharStats.STAT_SAVE_POISON,
+			affectableStats.getStat(CharStats.STAT_SAVE_POISON)
+			+(affectableStats.getClassLevel(this)*2));
+	}
+
+	public String otherLimitations(){return "";}
+	public String otherBonuses(){return "";}
+	public Vector outfit()
+	{
+		if(outfitChoices==null)
+		{
+			outfitChoices=new Vector();
+			Weapon w=CMClass.getWeapon("Shortsword");
+			outfitChoices.addElement(w);
+		}
+		return outfitChoices;
+	}
+}

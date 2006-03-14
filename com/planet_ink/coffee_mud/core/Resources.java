@@ -1,0 +1,269 @@
+package com.planet_ink.coffee_mud.core;
+import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Areas.interfaces.*;
+import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
+import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
+import com.planet_ink.coffee_mud.Commands.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Exits.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Locales.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.Races.interfaces.*;
+
+import java.util.*;
+
+
+
+/* 
+   Copyright 2000-2006 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+public class Resources
+{
+    private Resources(){super();}
+    private static Resources inst=new Resources();
+    public static Resources instance(){return inst;}
+    
+	private static boolean compress=false;
+	private static DVector resources=new DVector(3);
+    
+	public static void clearResources()
+	{
+		synchronized(resources)
+		{
+			resources.clear();
+		}
+	}
+    
+    public static String buildResourcePath(String path)
+    {
+        if((path==null)||(path.length()==0)) return "resources/";
+        return "resources/"+path+"/";
+    }
+	
+	public static void updateMultiList(String filename, Hashtable lists)
+	{
+		StringBuffer str=new StringBuffer("");
+		for(Enumeration e=lists.keys();e.hasMoreElements();)
+		{
+			String ml=(String)e.nextElement();
+			Vector V=(Vector)lists.get(ml);
+			str.append(ml+"\r\n");
+			if(V!=null)
+			for(int v=0;v<V.size();v++)
+				str.append(((String)V.elementAt(v))+"\r\n");
+			str.append("\r\n");
+		}
+        new CMFile(filename,null,false).saveText(str);
+	}
+	
+	public static Hashtable getMultiLists(String filename)
+	{
+		Hashtable oldH=new Hashtable();
+		Vector V=new Vector();
+		try{
+			V=Resources.getFileLineVector(new CMFile("resources/"+filename,null,false).text());
+		}catch(Exception e){}
+		if((V!=null)&&(V.size()>0))
+		{
+			String journal="";
+			Vector set=new Vector();
+			for(int v=0;v<V.size();v++)
+			{
+				String s=(String)V.elementAt(v);
+				if(s.trim().length()==0)
+					journal="";
+				else
+				if(journal.length()==0)
+				{
+					journal=s;
+					set=new Vector();
+					oldH.put(journal,set);
+				}
+				else
+					set.addElement(s);
+			}
+		}
+		return oldH;
+	}
+	
+	public static Vector findResourceKeys(String srch)
+	{
+		synchronized(resources)
+		{
+			Vector V=new Vector();
+			for(int i=0;i<resources.size();i++)
+			{
+				String key=(String)resources.elementAt(i,1);
+				if((srch.length()==0)||(key.toUpperCase().indexOf(srch.toUpperCase())>=0))
+					V.addElement(key);
+			}
+			return V;
+		}
+	}
+	
+	private static Object fetchResource(int x)
+	{
+		synchronized(resources)
+		{
+			if((x<resources.size())&&(x>=0))
+			{
+				if(!compress) return resources.elementAt(x,2);
+				if((((Boolean)resources.elementAt(x,3)).booleanValue())
+	            &&(resources.elementAt(x,2) instanceof byte[]))
+					return new StringBuffer(CMLib.encoder().decompressString((byte[])resources.elementAt(x,2)));
+				return resources.elementAt(x,2);
+			}
+			return null;
+		}
+	}
+	
+	public static Object getResource(String ID)
+	{
+		synchronized(resources)
+		{
+			for(int i=0;i<resources.size();i++)
+				if(((String)resources.elementAt(i,1)).equalsIgnoreCase(ID))
+					return fetchResource(i);
+			return null;
+		}
+	}
+
+	public static Object prepareObject(Object obj)
+	{
+		if(!compress) return obj;
+		if(obj instanceof StringBuffer)
+			return CMLib.encoder().compressString(((StringBuffer)obj).toString());
+		return obj;
+	}
+	
+	public static void submitResource(String ID, Object obj)
+	{
+		synchronized(resources)
+		{
+			if(getResource(ID)!=null)
+				return;
+	        Object prepared=prepareObject(obj);
+			resources.addElement(ID,prepared,new Boolean(prepared!=obj));
+		}
+	}
+	
+	public static void updateResource(String ID, Object obj)
+	{
+		synchronized(resources)
+		{
+			for(int i=0;i<resources.size();i++)
+				if(((String)resources.elementAt(i,1)).equalsIgnoreCase(ID))
+				{
+	                Object prepared=prepareObject(obj);
+					resources.setElementAt(i,2,prepared);
+	                resources.setElementAt(i,3,new Boolean(prepared!=obj));
+					return;
+				}
+		}
+	}
+	
+	public static void removeResource(String ID)
+	{
+		synchronized(resources)
+		{
+			try{
+				for(int i=0;i<resources.size();i++)
+					if(((String)resources.elementAt(i,1)).equalsIgnoreCase(ID))
+					{
+						resources.removeElementAt(i);
+						return;
+					}
+			}catch(ArrayIndexOutOfBoundsException e){}
+		}
+	}
+	
+	public static Vector getFileLineVector(StringBuffer buf)
+	{
+		Vector V=new Vector();
+        if(buf==null) return V;
+		StringBuffer str=new StringBuffer("");
+		for(int i=0;i<buf.length()-1;i++)
+		{
+			if(((buf.charAt(i)=='\n')&&(buf.charAt(i+1)=='\r'))
+			   ||((buf.charAt(i)=='\r')&&(buf.charAt(i+1)=='\n')))
+			{
+				i++;
+				V.addElement(str.toString());
+				str.setLength(0);
+			}
+			else
+			if(((buf.charAt(i)=='\r'))
+			||((buf.charAt(i)=='\n')))
+			{
+				V.addElement(str.toString());
+				str.setLength(0);
+			}
+			else
+				str.append(buf.charAt(i));
+		}
+		if(str.length()>0)
+			V.addElement(str.toString());
+		return V;
+	}
+	
+	public static String makeFileResourceName(String filename)
+	{
+	    return "resources/"+filename;
+	}
+	public static boolean isFileResource(String filename)
+	{
+	    if(getResource(filename)!=null) return true;
+	    if(new CMFile(makeFileResourceName(filename),null,false).exists())
+	    	return true;
+	    return false;
+	}
+	public static StringBuffer getFileResource(String filename, boolean reportErrors)
+	{
+		Object rsc=getResource(filename);
+		if(rsc!=null)
+		{
+			if(rsc instanceof StringBuffer)
+				return (StringBuffer)rsc;
+			else
+			if(rsc instanceof String)
+				return new StringBuffer((String)rsc);
+		}
+		
+		StringBuffer buf=new CMFile(makeFileResourceName(filename),null,reportErrors).text();
+		submitResource(filename,buf);
+		return buf;
+	}
+	
+    public static boolean saveFileResource(String filename)
+    {return saveFileResource(filename,null,getFileResource(filename,false));}
+	public static boolean saveFileResource(String filename, MOB whom, StringBuffer myRsc)
+	{
+        boolean vfsFile=filename.trim().startsWith("::");
+        boolean localFile=filename.trim().startsWith("//");
+        filename=CMFile.vfsifyFilename(filename);
+        if(filename.startsWith("resources/"))
+            filename="resources/"+filename;
+        filename=(vfsFile?"::":localFile?"//":"")+filename;
+        return new CMFile(filename,whom,false).saveRaw(myRsc);
+	}
+	
+	public static void setCompression(boolean truefalse)
+	{	compress=truefalse;}
+	public static boolean compressed(){return compress;}
+	
+}

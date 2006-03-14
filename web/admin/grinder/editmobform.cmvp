@@ -1,0 +1,470 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+@if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
+@if?!CheckAuthCode?ANYMODAREAS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
+<html>
+<head>
+	<!-- tell spiders to sod off -->
+	<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
+	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="/grinder/grinder.css">
+	<title>CoffeeMud MUDGrinder</title>
+	<SCRIPT LANGUAGE=JavaScript>
+	<!--
+		function AddNewItem()
+		{
+			document.AREAEDIT.action='/grinder/addmobitem.cmvp';
+			document.AREAEDIT.target='_top';
+			document.AREAEDIT.submit();
+		}
+		function AddItem(ME)
+		{
+			if(ME.selectedIndex>0)
+				ReShow();
+		}
+		function DelItem(ME)
+		{
+			if(ME.selectedIndex==0)
+				ReShow();
+		}
+		function EditItem(ME)
+		{
+			document.AREAEDIT.ITEM.value=ME;
+			document.AREAEDIT.action='/grinder/editmobitem.cmvp';
+			document.AREAEDIT.target='_top';
+			document.AREAEDIT.submit();
+		}
+		function EditBehavior(ME)
+		{
+			if(ME.selectedIndex==0)
+				ReShow();
+		}
+		function AddBehavior(ME)
+		{
+			if(ME.selectedIndex>0)
+				ReShow();
+		}
+		function EditFaction(ME)
+		{
+			if(ME.selectedIndex==0)
+				ReShow();
+		}
+		function AddFaction(ME)
+		{
+			if(ME.selectedIndex>0)
+				ReShow();
+		}
+		function EditAffect(ME)
+		{
+			if(ME.selectedIndex==0)
+				ReShow();
+		}
+		function AddAffect(ME)
+		{
+			if(ME.selectedIndex>0)
+				ReShow();
+		}
+		function ChangedClass()
+		{
+			document.AREAEDIT.CHANGEDCLASS.value="true";
+			ReShow();
+		}
+		function ChangedLevel()
+		{
+			document.AREAEDIT.CHANGEDLEVEL.value="true";
+			ReShow();
+		}
+		
+		function ReShow()
+		{
+			document.AREAEDIT.action='/grinder/editmobform.cmvp';
+			document.AREAEDIT.target='MAP';
+			document.AREAEDIT.submit();
+		}
+	//-->
+	</SCRIPT>
+</head>
+<BODY>
+<CENTER>
+<h3>Modify MOB from '@RoomID@'.</H3>
+<P><FONT COLOR=RED><H1>@RequestParameter?ERRMSG@</H1></FONT>
+<BR>
+<FORM NAME=AREAEDIT TARGET=_top METHOD=POST ACTION="/grinder/editmobdone.cmvp">
+<INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
+<INPUT TYPE=HIDDEN NAME=ROOM VALUE="@RoomID@">
+<INPUT TYPE=HIDDEN NAME=CHANGEDCLASS VALUE="">
+<INPUT TYPE=HIDDEN NAME=CHANGEDLEVEL VALUE="">
+<INPUT TYPE=HIDDEN NAME=LINK VALUE="@RequestParameter?LINK@">
+<INPUT TYPE=HIDDEN NAME=AREA VALUE="@AreaName@">
+<INPUT TYPE=HIDDEN NAME=MAPLEVEL VALUE="@RequestParameter?MAPLEVEL@">
+<INPUT TYPE=HIDDEN NAME=MAPSTYLE VALUE="@RequestParameter?MAPSTYLE@">
+<INPUT TYPE=HIDDEN NAME=MOB VALUE="@RequestParameter?MOB@">
+<INPUT TYPE=HIDDEN NAME=ITEM VALUE="">
+<INPUT TYPE=HIDDEN NAME=ACTION VALUE="MODIFYMOB">
+<TABLE WIDTH=600 BORDER=1 CELLSPACING=0 CELLPADDIN=0>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>MOB Class:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2>
+	<SELECT NAME=CLASSES ONCHANGE="ChangedClass();">
+	@MobData?CLASSES@
+	</SELECT>
+	</TD>
+</TR>
+@if?MobData?ISGENERIC@
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Name:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=NAME SIZE=60 VALUE="@MobData?NAME@"></TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Display:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=DISPLAYTEXT SIZE=60 MAXLENGTH=255 VALUE="@MobData?DISPLAYTEXT@"></TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Description:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=DESCRIPTION SIZE=60 MAXLENGTH=255 VALUE="@MobData?DESCRIPTION@"></TD>
+</TR>
+<TR>
+	<TD WIDTH=100><FONT COLOR="#66FFFF"><B>GIF filename:</B></FONT></TD>
+    <TD WIDTH=500 COLSPAN=2><INPUT TYPE=TEXT NAME=IMAGE SIZE=50 VALUE="@MobData?IMAGE@"></TD>
+</TR>
+@else@
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Parameters:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=MISCTEXT SIZE=60 MAXLENGTH=255 VALUE="@MobData?MISCTEXT@"></TD>
+</TR>
+@endif@
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Level:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=LEVEL SIZE=5 VALUE="@MobData?LEVEL@">
+    <INPUT TYPE=BUTTON ONCLICK="ChangedLevel();" NAME=BUTTCHANGEDLEVEL VALUE="ReScore">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Rejuv. Ticks:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=REJUV SIZE=5 VALUE="@MobData?REJUV@">
+    </TD>
+</TR>
+@if?!MobData?ISGENERIC@
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Magic Level:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=ABILITY SIZE=5 VALUE="@MobData?ABILITY@">
+    </TD>
+</TR>
+@endif@
+@if?MobData?ISGENERIC@
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Race:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2>
+    <SELECT NAME=RACE>
+    @MobData?RACE@
+    </SELECT>
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Gender:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><FONT COLOR=WHITE>
+    @MobData?GENDER@
+    </FONT>
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Height:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=HEIGHT SIZE=5 VALUE="@MobData?HEIGHT@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Weight:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=WEIGHT SIZE=5 VALUE="@MobData?WEIGHT@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Clan (ID):</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CLANID SIZE=5 MAXLENGTH=100 VALUE="@MobData?CLANID@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Hit Points Mod.:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=ABILITY SIZE=5 VALUE="@MobData?ABILITY@">
+	&nbsp;&nbsp;<FONT COLOR="#66FFFF">(Total Hit Points=((Level*Level) + (Random * Level * THIS)))
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Attack Speed:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=SPEED SIZE=5 VALUE="@MobData?SPEED@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Attack Bonus:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=ATTACK SIZE=5 VALUE="@MobData?ATTACK@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Damage Bonus:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=DAMAGE SIZE=5 VALUE="@MobData?DAMAGE@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Armor:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=ARMOR SIZE=5 VALUE="@MobData?ARMOR@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Factions:</B></FONT></TD>
+    	<TD WIDTH=450 COLSPAN=2>
+	@MobData?FACTIONS@
+	</TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Money:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=MONEY SIZE=5 VALUE="@MobData?MONEY@">
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Abilities:</B></FONT>
+	<BR><A target=HELP HREF="/abilities.cmvp"><FONT COLOR=WHITE><I>help</I></FONT></a></TD>
+    <TD WIDTH=450 COLSPAN=2>
+	@MobData?ABILITIES@
+	</TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Behaviors:</B></FONT>
+	<BR><A target=HELP HREF="/behaviors.cmvp"><FONT COLOR=WHITE><I>help</I></FONT></a></TD>
+    <TD WIDTH=450 COLSPAN=2>
+	@MobData?BEHAVIORS@
+	</TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Affects:</B></FONT>
+	<BR><A target=HELP href="/affects.cmvp"><FONT COLOR=WHITE><I>help</I></FONT></a></TD>
+    <TD WIDTH=450 COLSPAN=2>
+	@MobData?AFFECTS@
+	</TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>MOB Flags:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><FONT COLOR=WHITE>
+		<INPUT TYPE=CHECKBOX NAME=ISINVISIBLE @MobData?ISINVISIBLE@>Is Invisible<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISHIDDEN @MobData?ISHIDDEN@>Is Hidden<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISSNEAKING @MobData?ISSNEAKING@>Is Sneaker<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISSEEN @MobData?ISSEEN@>Is Unseeable<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISBONUS @MobData?ISBONUS@>Is Magical<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISLIGHT @MobData?ISLIGHT@>Is Glowing (burning)<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISFLYING @MobData?ISFLYING@>Is Flying<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISCLIMBING @MobData?ISCLIMBING@>Is Climbing<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISSLEEPING @MobData?ISSLEEPING@>Is Sleeping<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISSITTING @MobData?ISSITTING@>Is Sitting<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISSWIMMING @MobData?ISSWIMMING@>Is Swimming<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISEVIL @MobData?ISEVIL@>Has Evil Aura<BR>
+		<INPUT TYPE=CHECKBOX NAME=ISGOOD @MobData?ISGOOD@>Has Good Aura<BR>
+		</FONT>
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=150><FONT COLOR="#66FFFF"><B>MOB Senses:</B></FONT></TD>
+    <TD WIDTH=450 COLSPAN=2><FONT COLOR=WHITE>
+		<INPUT TYPE=CHECKBOX NAME=CANNOTSEE @MobData?CANNOTSEE@>Is Blind<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANSEEHIDDEN @MobData?CANSEEHIDDEN@>See Hidden<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANSEEINVISIBLE @MobData?CANSEEINVISIBLE@>See Invisible <BR>
+		<INPUT TYPE=CHECKBOX NAME=CANSEESNEAKERS @MobData?CANSEESNEAKERS@>See Sneakers<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANSEEDARK @MobData?CANSEEDARK@>Darkvision<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANSEEINFRARED @MobData?CANSEEINFRARED@>Infravision<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANNOTHEAR @MobData?CANNOTHEAR@>Is Deaf<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANNOTMOVE @MobData?CANNOTMOVE@>Is Paralyzed<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANNOTSMELL @MobData?CANNOTSMELL@>Can't Smell<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANNOTTASTE @MobData?CANNOTTASTE@>Can't Taste<BR>
+		<INPUT TYPE=CHECKBOX NAME=CANNOTSPEAK @MobData?CANNOTSPEAK@>Is Mute<BR>
+		</FONT>
+    </TD>
+</TR>
+@if?MobData?ISRIDEABLE@
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Rideable Type:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2>
+		<SELECT NAME=RIDEABLETYPE>
+		@MobData?RIDEABLETYPE@
+		</SELECT>
+		</TD>
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Rideable Capacity:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=MOBSHELD SIZE=5 VALUE="@MobData?MOBSHELD@">
+	</TR>
+@endif@
+@if?MobData?ISDEITY@
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Cleric Requirements:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CLEREQ SIZE=25 MAXLENGTH=255 VALUE="@MobData?CLEREQ@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Worship Requirements:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=WORREQ SIZE=25 MAXLENGTH=255 VALUE="@MobData?WORREQ@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Blessings:</B></FONT>
+		<BR><A target=HELP HREF="/abilities.cmvp"><FONT COLOR=WHITE><I>help</I></FONT></a></TD>
+	    <TD WIDTH=450 COLSPAN=2>
+		@MobData?BLESSINGS@
+		</TD>
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Cleric Ritual:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CLERIT SIZE=25 VALUE="@MobData?CLERIT@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Worship Ritual:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=WORRIT SIZE=25 VALUE="@MobData?WORRIT@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Curses of Sin:</B></FONT>
+		<BR><A target=HELP HREF="/abilities.cmvp"><FONT COLOR=WHITE><I>help</I></FONT></a></TD>
+	    <TD WIDTH=450 COLSPAN=2>
+		@MobData?CURSES@
+		</TD>
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Clerical Sins:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CLERIT SIZE=25 MAXLENGTH=255 VALUE="@MobData?CLERSIN@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Worshipper Sins:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=WORRIT SIZE=25 MAXLENGTH=255 VALUE="@MobData?WORRSIN@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Clerical Powers:</B></FONT>
+		<BR><A target=HELP HREF="/abilities.cmvp"><FONT COLOR=WHITE><I>help</I></FONT></a></TD>
+	    <TD WIDTH=450 COLSPAN=2>
+		@MobData?POWERS@
+		</TD>
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Clerical Power Ritual:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=CLERIT SIZE=25 VALUE="@MobData?CLERPOW@">
+	</TR>
+@endif@
+@if?MobData?ISSHOPKEEPER@
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Shopkeeper Type:</B></FONT></TD>
+		<TD WIDTH=450 COLSPAN=2>
+		<SELECT NAME=SHOPKEEPERTYPE>
+		@MobData?SHOPKEEPERTYPE@
+		</SELECT>
+		</TD>
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Shop Inventory:</B></FONT>
+	    <TD WIDTH=450 COLSPAN=2>
+	    	<FONT COLOR=WHITE>
+		@MobData?SHOPINVENTORY@
+		</FONT>
+		</TD>
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Prejudices:</B></FONT>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=SHOPPREJ SIZE=60 MAXLENGTH=255 VALUE="@MobData?SHOPPREJ@">
+	</TR>
+	<TR>
+		<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Ignorable Mask:</B></FONT>
+		<TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=IGNOREMASK SIZE=60 MAXLENGTH=255 VALUE="@MobData?IGNOREMASK@">
+	</TR>
+	@if?MobData?ISBANKER@
+		<TR>
+			<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Bank Chain Name:</B></FONT></TD>
+		    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=BANKNAME SIZE=50 VALUE="@MobData?BANKNAME@">
+		    </TD>
+		</TR>
+		<TR>
+			<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Coin Interest Rate:</B></FONT></TD>
+		    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=COININT SIZE=7 VALUE="@MobData?COININT@">
+		    </TD>
+		</TR>
+		<TR>
+			<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Item Interest Rate:</B></FONT></TD>
+		    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=ITEMINT SIZE=7 VALUE="@MobData?ITEMINT@">
+		    </TD>
+		</TR>
+	@else@
+		@if?MobData?ISPOSTMAN@
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Fee to open a new box:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=POSTNEW SIZE=7 VALUE="@MobData?POSTNEW@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Postal Chain Name:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=POSTCHAIN SIZE=50 VALUE="@MobData?POSTCHAIN@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Minimum postage cost:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=POSTMIN SIZE=7 VALUE="@MobData?POSTMIN@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Postage cost/pound after first pound:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=POSTLBS SIZE=7 VALUE="@MobData?POSTLBS@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Holding fee per pound per month:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=POSTHOLD SIZE=7 VALUE="@MobData?POSTHOLD@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Maximum months held:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=POSTHELD SIZE=7 VALUE="@MobData?POSTHELD@">
+			    </TD>
+			</TR>
+		@else@
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Budget:</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=BUDGET SIZE=30 VALUE="@MobData?BUDGET@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Deval. Rate(s):</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=DEVALRATE SIZE=7 VALUE="@MobData?DEVALRATE@">
+			    </TD>
+			</TR>
+			<TR>
+				<TD WIDTH=150><FONT COLOR="#66FFFF"><B>Inv. Reset (Ticks):</B></FONT></TD>
+			    <TD WIDTH=450 COLSPAN=2><INPUT TYPE=TEXT NAME=INVRESETRATE SIZE=7 VALUE="@MobData?INVRESETRATE@">
+			    </TD>
+			</TR>
+		@endif@
+	@endif@
+@endif@
+<TR>
+	<TD WIDTH=100><FONT COLOR="#66FFFF"><B>Tattoos:</B></FONT>
+	</TD>
+    <TD WIDTH=500 COLSPAN=2>
+    <INPUT TYPE=TEXT NAME=TATTOOS SIZE=30 VALUE="@MobData?TATTOOS@">
+    <FONT SIZE=-1><I>Semicolon delimited</I>
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=100><FONT COLOR="#66FFFF"><B>Education:</B></FONT>
+	</TD>
+    <TD WIDTH=500 COLSPAN=2>
+    <INPUT TYPE=TEXT NAME=EDUCATIONS SIZE=30 VALUE="@MobData?EDUCATIONS@">
+    <FONT SIZE=-1><I>Semicolon delimited</I>
+    </TD>
+</TR>
+<TR>
+	<TD WIDTH=100><FONT COLOR="#66FFFF"><B>MOB Inventory:</B></FONT></TD>
+    <TD WIDTH=500 COLSPAN=2>
+    @MobData?ITEMLIST@
+    </TD>
+</TR>
+@endif@
+<TR>
+    <TD WIDTH=600 COLSPAN=3 ALIGN=CENTER>
+	<INPUT TYPE=SUBMIT NAME=FINISHED VALUE="Finished">
+	</CENTER>
+	</TD>
+</TR>
+</TABLE>
+</FORM>
+</CENTER>
+</BODY>
+</HTML>
+@endif@
+@endif@

@@ -1,0 +1,579 @@
+package com.planet_ink.coffee_mud.Items.Basic;
+import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Areas.interfaces.*;
+import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
+import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
+import com.planet_ink.coffee_mud.Commands.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Exits.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Locales.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.Races.interfaces.*;
+
+import com.planet_ink.coffee_mud.core.exceptions.HTTPRedirectException;
+import java.util.*;
+import java.io.IOException;
+
+/* 
+   Copyright 2000-2006 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+public class StdJournal extends StdItem
+{
+	public String ID(){	return "StdJournal";}
+	public StdJournal()
+	{
+		super();
+		setName("a journal");
+		setDisplayText("a journal sits here.");
+		setDescription("Enter `READ [NUMBER] [JOURNAL]` to read an entry.%0D%0AUse your WRITE skill to add new entries. ");
+		material=RawMaterial.RESOURCE_PAPER;
+		baseEnvStats().setSensesMask(EnvStats.SENSE_ITEMREADABLE);
+		recoverEnvStats();
+	}
+
+	protected MOB lastReadTo=null;
+	protected long lastDateRead=-1;
+
+	public boolean okMessage(Environmental myHost, CMMsg msg)
+	{
+		if(msg.amITarget(this))
+		switch(msg.targetMinor())
+		{
+		case CMMsg.TYP_WRITE:
+        {
+            String adminReq=getAdminReq().trim();
+            boolean admin=(adminReq.length()>0)&&CMLib.masking().maskCheck(adminReq,msg.source());
+			if((!CMLib.masking().maskCheck(getWriteReq(),msg.source()))
+            &&(!admin)
+            &&(!(CMSecurity.isAllowed(msg.source(),msg.source().location(),"JOURNALS"))))
+			{
+				msg.source().tell("You are not allowed to write on "+name());
+				return false;
+			}
+			return true;
+        }
+		}
+		return super.okMessage(myHost,msg);
+	}
+
+	public void executeMsg(Environmental myHost, CMMsg msg)
+	{
+		MOB mob=msg.source();
+		if(msg.amITarget(this))
+		switch(msg.targetMinor())
+		{
+		case CMMsg.TYP_READ:
+			if(!CMLib.flags().canBeSeenBy(this,mob))
+				mob.tell("You can't see that!");
+			else
+			if((!mob.isMonster())
+			&&(mob.playerStats()!=null))
+			{
+                String adminReq=getAdminReq().trim();
+                boolean admin=(adminReq.length()>0)&&CMLib.masking().maskCheck(adminReq,mob);
+				long lastTime=mob.playerStats().lastDateTime();
+				if((admin)&&(!CMLib.masking().maskCheck(getReadReq(),mob)))
+				{
+					mob.tell("You are not allowed to read "+name()+".");
+					return;
+				}
+				int which=-1;
+				boolean newOnly=false;
+				boolean all=false;
+				Vector parse=CMParms.parse(msg.targetMessage());
+				for(int v=0;v<parse.size();v++)
+				{
+				    String s=(String)parse.elementAt(v);
+					if(CMath.s_long(s)>0)
+						which=CMath.s_int(msg.targetMessage());
+					else
+					if(s.equalsIgnoreCase("NEW"))
+					    newOnly=true;
+					else
+					if(s.equalsIgnoreCase("ALL")||s.equalsIgnoreCase("OLD"))
+					    all=true;
+				}
+				Vector read=DBRead(Name(),mob.Name(),which-1,lastTime, newOnly, all);
+				boolean megaRepeat=true;
+				while(megaRepeat)
+				{
+				    megaRepeat=false;
+					String from=(String)read.firstElement();
+					StringBuffer entry=(StringBuffer)read.lastElement();
+					boolean mineAble=false;
+					if(entry.charAt(0)=='#')
+					{
+						which=-1;
+						entry.setCharAt(0,' ');
+					}
+					if((entry.charAt(0)=='*')
+                       ||(admin)
+					   ||(CMSecurity.isAllowed(mob,mob.location(),"JOURNALS")))
+					{
+						mineAble=true;
+						entry.setCharAt(0,' ');
+					}
+					else
+					if((newOnly)&&(msg.value()>0))
+					    return;
+					mob.tell(entry.toString()+"\n\r");
+					if((entry.toString().trim().length()>0)
+					&&(which>0)
+					&&(CMLib.masking().maskCheck(getWriteReq(),mob)
+                        ||(admin)
+                        ||(CMSecurity.isAllowed(msg.source(),msg.source().location(),"JOURNALS"))))
+					{
+						boolean repeat=true;
+						while(repeat)
+						{
+							repeat=false;
+							try
+							{
+								String prompt="";
+                                String cmds="";
+                                if(CMLib.masking().maskCheck(getReplyReq(),mob)
+                                ||admin
+                                ||(CMSecurity.isAllowed(msg.source(),msg.source().location(),"JOURNALS")))
+                                {
+                                    prompt+="^<MENU^>R^</MENU^>)eply ";
+                                    cmds+="R";
+                                }
+								if((CMProps.getVar(CMProps.SYSTEM_MAILBOX).length()>0)
+								&&(from.length()>0))
+									prompt+="^<MENU^>E^</MENU^>)mail "; cmds+="E";
+								if(msg.value()>0){ prompt+="S)top "; cmds+="S";}
+								else
+								{ prompt+="^<MENU^>N^</MENU^>)ext "; cmds+="N";}
+								if(mineAble){ prompt+="^<MENU^>D^</MENU^>)elete "; cmds+="D";}
+								if((admin)
+                                ||(CMSecurity.isAllowed(msg.source(),msg.source().location(),"JOURNALS")))
+								{ prompt+="^<MENU^>T^</MENU^>)ransfer "; cmds+="T";}
+								prompt+="or RETURN: ";
+								String s=mob.session().choose(prompt,cmds+"\n","\n");
+								if(s.equalsIgnoreCase("S"))
+									msg.setValue(0);
+								else
+								if(s.equalsIgnoreCase("N"))
+								{
+								    while(entry!=null)
+								    {
+								        which++;
+										read=DBRead(Name(),mob.Name(),which-1,lastTime, newOnly, all);
+										entry=(StringBuffer)read.lastElement();
+										if(entry.toString().trim().length()>0)
+										{
+											if(entry.charAt(0)=='#')
+												return;
+											if((entry.charAt(0)=='*')||(!newOnly))
+											    break;
+										}
+								    }
+								    megaRepeat=true;
+								}
+								else
+								if(s.equalsIgnoreCase("E"))
+								{
+									MOB M=CMLib.map().getLoadPlayer(from);
+									if((M==null)||(M.playerStats()==null)||(M.playerStats().getEmail().indexOf("@")<0))
+									{
+										mob.tell("Player '"+from+"' does not exist, or has no email address.");
+										repeat=true;
+									}
+									else
+									if(!mob.session().choose("Send email to "+M.Name()+" (Y/n)?","YN\n","Y").equalsIgnoreCase("N"))
+									{
+										String replyMsg=mob.session().prompt("Enter your email response\n\r: ");
+										if(replyMsg.trim().length()>0)
+										{
+											CMLib.database().DBWriteJournal(CMProps.getVar(CMProps.SYSTEM_MAILBOX),
+																			  mob.Name(),
+																			  M.Name(),
+																			  "RE: "+((String)read.elementAt(1)),
+																			  replyMsg,-1);
+											mob.tell("Email queued.");
+										}
+										else
+										{
+											mob.tell("Aborted.");
+											repeat=true;
+										}
+									}
+									else
+										repeat=true;
+								}
+								else
+								if(s.equalsIgnoreCase("T"))
+								{
+								    String journal=mob.session().prompt("Enter the journal to transfer this msg to: ","");
+								    journal=journal.trim();
+								    if(journal.length()>0)
+								    {
+                                        String realName=null;
+                                        for(int i=0;i<CMLib.journals().getNumCommandJournals();i++)
+                                            if(journal.equalsIgnoreCase(CMLib.journals().getCommandJournalName(i))
+                                            ||journal.equalsIgnoreCase(CMLib.journals().getCommandJournalName(i)+"s"))
+                                            {
+                                                realName="SYSTEM_"+CMLib.journals().getCommandJournalName(i).toUpperCase()+"S";
+                                                break;
+                                            }
+                                        if(realName==null)
+                                            realName=CMLib.database().DBGetRealJournalName(journal);
+                                        if(realName==null)
+                                            realName=CMLib.database().DBGetRealJournalName(journal.toUpperCase());
+								        if(realName==null)
+											mob.tell("The journal '"+journal+"' does not presently exist.  Aborted.");
+								        else
+								        {
+											Vector journal2=CMLib.database().DBReadJournal(Name());
+											Vector entry2=(Vector)journal2.elementAt(which-1);
+											String from2=(String)entry2.elementAt(1);
+											String to=(String)entry2.elementAt(3);
+											String subject=(String)entry2.elementAt(4);
+											String message=(String)entry2.elementAt(5);
+											CMLib.database().DBDeleteJournal(Name(),which-1);
+											CMLib.database().DBWriteJournal(realName,
+																			  from2,
+																			  to,
+																			  subject,
+																			  message,-1);
+											msg.setValue(-1);
+								        }
+										mob.tell("Message transferred.");
+								    }
+							        else
+										mob.tell("Aborted.");
+								}
+								else
+								if(s.equalsIgnoreCase("D"))
+								{
+									CMLib.database().DBDeleteJournal(Name(),which-1);
+									msg.setValue(-1);
+									mob.tell("Entry deleted.");
+								}
+								else
+								if(s.equalsIgnoreCase("R"))
+								{
+									String replyMsg=mob.session().prompt("Enter your response\n\r: ");
+									if(replyMsg.trim().length()>0)
+									{
+										CMLib.database().DBWriteJournal(Name(),mob.Name(),"","",replyMsg,which-1);
+										mob.tell("Reply added.");
+									}
+									else
+									{
+										mob.tell("Aborted.");
+										repeat=true;
+									}
+								}
+							}
+							catch(IOException e)
+							{
+								Log.errOut("JournalItem",e.getMessage());
+							}
+						}
+					}
+					else
+					if(which<0)
+						mob.tell(description());
+					else
+						mob.tell("That message is private.");
+				}
+				return;
+			}
+			return;
+		case CMMsg.TYP_WRITE:
+			try
+			{
+                String adminReq=getAdminReq().trim();
+                boolean admin=(adminReq.length()>0)&&CMLib.masking().maskCheck(adminReq,mob);
+				if((msg.targetMessage().toUpperCase().startsWith("DEL"))
+				   &&(CMSecurity.isAllowed(mob,mob.location(),"JOURNALS")||admin)
+				   &&(!mob.isMonster()))
+				{
+					if(mob.session().confirm("Delete all journal entries? Are you sure (y/N)?","N"))
+						CMLib.database().DBDeleteJournal(name(),-1);
+				}
+				else
+				if(!mob.isMonster())
+				{
+					String to="ALL";
+					if(getWriteReq().toUpperCase().indexOf("PRIVATE")>=0)
+						to=mob.Name();
+					else
+					if(mob.session().confirm("Is this a private message (y/N)?","N"))
+					{
+						to=mob.session().prompt("To whom:");
+						if(!CMLib.database().DBUserSearch(null,to))
+						{
+							mob.tell("I'm sorry, there is no such user.");
+							return;
+						}
+					}
+					String subject=mob.session().prompt("Enter a subject: ");
+					if(subject.trim().length()==0)
+					{
+						mob.tell("Aborted.");
+						return;
+					}
+					if((subject.toUpperCase().startsWith("MOTD")||subject.toUpperCase().startsWith("MOTM")||subject.toUpperCase().startsWith("MOTY"))
+                       &&(!admin)
+					   &&(!(CMSecurity.isAllowed(mob,mob.location(),"JOURNALS"))))
+						subject=subject.substring(4);
+					String message=mob.session().prompt("Enter your message\n\r: ");
+					if(message.trim().length()==0)
+					{
+						mob.tell("Aborted.");
+						return;
+					}
+					if(message.startsWith("<cmvp>")
+                    &&(!admin)
+					&&(!(CMSecurity.isAllowed(mob,mob.location(),"JOURNALS"))))
+					{
+						mob.tell("Illegal code, aborted.");
+						return;
+					}
+
+					CMLib.database().DBWriteJournal(Name(),mob.Name(),to,subject,message,-1);
+					mob.tell("Journal entry added.");
+				}
+				return;
+			}
+			catch(IOException e)
+			{
+				Log.errOut("JournalItem",e.getMessage());
+			}
+			return;
+		}
+		else
+		if((msg.targetMinor()==CMMsg.TYP_ENTER)
+		&&(owner instanceof Room)
+		&&(msg.source().playerStats()!=null)
+		&&(CMLib.masking().maskCheck(getReadReq(),msg.source())))
+		{
+			long lastDate=CMLib.database().DBReadNewJournalDate(Name(),msg.source().Name());
+			if((lastDate>msg.source().playerStats().lastDateTime())
+			&&((lastDate!=lastDateRead)||(msg.source()!=lastReadTo)))
+			{
+				lastReadTo=msg.source();
+				lastDateRead=lastDate;
+				msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_OK_VISUAL,name()+" has new messages.",CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
+			}
+		}
+		else
+		if(((msg.targetMinor()==CMMsg.TYP_LOOK)||(msg.targetMinor()==CMMsg.TYP_EXAMINE))
+		&&(msg.target() instanceof Room)
+		&&(msg.source()==owner)
+		&&(msg.source().playerStats()!=null)
+		&&(CMLib.masking().maskCheck(getReadReq(),msg.source())))
+		{
+			long lastDate=CMLib.database().DBReadNewJournalDate(Name(),msg.source().Name());
+			if((lastDate>msg.source().playerStats().lastDateTime())
+			&&((lastDate!=lastDateRead)||(msg.source()!=lastReadTo)))
+			{
+				lastReadTo=msg.source();
+				lastDateRead=lastDate;
+				msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_OK_VISUAL,name()+" has new messages.",CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
+			}
+		}
+		super.executeMsg(myHost,msg);
+	}
+
+	public Vector DBRead(String Journal, String username, int which, long lastTimeDate, boolean newOnly, boolean all)
+	{
+		StringBuffer buf=new StringBuffer("");
+		Vector reply=new Vector();
+		Vector journal=CMLib.database().DBReadJournal(Journal);
+		boolean shortFormat=readableText().toUpperCase().indexOf("SHORTLIST")>=0;
+		if((which<0)||(journal==null)||(which>=journal.size()))
+		{
+			buf.append("#\n\r "+CMStrings.padRight("#",5)
+					   +((shortFormat)?"":""
+					   +CMStrings.padRight("From",11)
+					   +CMStrings.padRight("To",11))
+					   +CMStrings.padRight("Date",20)
+					   +"Subject\n\r");
+			buf.append("-------------------------------------------------------------------------\n\r");
+			if(journal==null)
+			{
+				reply.addElement("");
+				reply.addElement("");
+				reply.addElement(buf);
+				return reply;
+			}
+		}
+
+		if((which<0)||(which>=journal.size()))
+		{
+			if(journal.size()>0)
+			{
+				reply.addElement(((Vector)journal.firstElement()).elementAt(1));
+				reply.addElement(((Vector)journal.firstElement()).elementAt(4));
+			}
+			Vector selections=new Vector();
+			for(int j=0;j<journal.size();j++)
+			{
+				Vector entry=(Vector)journal.elementAt(j);
+				String from=(String)entry.elementAt(1);
+				String date=(String)entry.elementAt(2);
+				String to=(String)entry.elementAt(3);
+				String subject=(String)entry.elementAt(4);
+				// message is 5, but dont matter.
+				String compdate=(String)entry.elementAt(6);
+				StringBuffer selection=new StringBuffer("");
+				if(to.equals("ALL")||to.equalsIgnoreCase(username)||from.equalsIgnoreCase(username))
+				{
+					if(CMath.s_long(compdate)>lastTimeDate)
+					    selection.append("*");
+					else
+					if(newOnly)
+					    continue;
+					else
+					    selection.append(" ");
+					selection.append("^<JRNL \""+name()+"\"^>"+CMStrings.padRight((j+1)+"",3)+"^</JRNL^>) "
+								   +((shortFormat)?"":""
+								   +CMStrings.padRight(from,10)+" "
+								   +CMStrings.padRight(to,10)+" ")
+								   +CMStrings.padRight(CMLib.time().date2String(CMath.s_long(date)),19)+" "
+								   +CMStrings.padRight(subject,25+(shortFormat?22:0))+"\n\r");
+					selections.addElement(selection);
+				}
+			}
+			int numToAdd=CMProps.getIntVar(CMProps.SYSTEMI_JOURNALLIMIT);
+			if((numToAdd==0)||(all)) numToAdd=Integer.MAX_VALUE;
+			for(int v=selections.size()-1;v>=0;v--)
+			{
+			    if(numToAdd==0){ selections.setElementAt("",v); continue;}
+			    StringBuffer str=(StringBuffer)selections.elementAt(v);
+			    if((newOnly)&&(str.charAt(0)!='*'))
+			    { selections.setElementAt("",v); continue;}
+			    numToAdd--;
+			}
+			boolean notify=false;
+			for(int v=0;v<selections.size();v++)
+			{
+			    if(!(selections.elementAt(v) instanceof StringBuffer))
+			    {
+			        notify=true;
+			        continue;
+			    }
+			    buf.append((StringBuffer)selections.elementAt(v));
+			}
+			if(notify)
+			    buf.append("\n\rUse READ ALL [JOURNAL] to see missing entries.");
+		}
+		else
+		{
+			Vector entry=(Vector)journal.elementAt(which);
+			String from=(String)entry.elementAt(1);
+			String date=(String)entry.elementAt(2);
+			String to=(String)entry.elementAt(3);
+			String subject=(String)entry.elementAt(4);
+			String message=(String)entry.elementAt(5);
+			
+			reply.addElement(entry.elementAt(1));
+			reply.addElement(entry.elementAt(4));
+			
+			//String compdate=(String)entry.elementAt(6);
+			boolean mineAble=to.equalsIgnoreCase(username)||from.equalsIgnoreCase(username);
+			if(mineAble)
+				buf.append("*");
+			else
+				buf.append(" ");
+			try
+			{
+				if(message.startsWith("<cmvp>"))
+					message=new String(CMLib.httpUtils().doVirtualPage(message.substring(6).getBytes()));
+			}
+			catch(HTTPRedirectException e){}
+
+			if(to.equals("ALL")||mineAble)
+				buf.append("\n\r^<JRNL \""+name()+"\"^>"+CMStrings.padRight((which+1)+"",3)+"^</JRNL^>)\n\r"
+						   +"FROM: "+from
+						   +"\n\rTO  : "+to
+						   +"\n\rDATE: "+CMLib.time().date2String(CMath.s_long(date))
+						   +"\n\rSUBJ: "+subject
+						   +"\n\r"+message);
+		}
+		while(reply.size()<2)
+			reply.addElement("");
+		reply.addElement(buf);
+		return reply;
+	}
+
+	protected String getReadReq()
+	{
+		if(readableText().length()==0) return "";
+		String text=readableText().toUpperCase();
+		int readeq=text.indexOf("READ=");
+		if(readeq<0) return "";
+		text=text.substring(readeq+5);
+		int writeeq=text.indexOf("WRITE=");
+		if(writeeq>=0)text= text.substring(0,writeeq);
+        int replyreq=text.indexOf("REPLY=");
+        if(replyreq>=0) text=text.substring(0,replyreq);
+        int adminreq=text.indexOf("ADMIN=");
+        if(adminreq>=0) text=text.substring(0,adminreq);
+		return text;
+	}
+	protected String getWriteReq()
+	{
+		if(readableText().length()==0) return "";
+		String text=readableText().toUpperCase();
+		int writeeq=text.indexOf("WRITE=");
+		if(writeeq<0) return "";
+		text=text.substring(writeeq+6);
+		int readeq=text.indexOf("READ=");
+		if(readeq>=0) text=text.substring(0,readeq);
+        int replyreq=text.indexOf("REPLY=");
+        if(replyreq>=0) text=text.substring(0,replyreq);
+        int adminreq=text.indexOf("ADMIN=");
+        if(adminreq>=0) text=text.substring(0,adminreq);
+		return text;
+	}
+    private String getReplyReq()
+    {
+        if(readableText().length()==0) return "";
+        String text=readableText().toUpperCase();
+        int replyreq=text.indexOf("REPLY=");
+        if(replyreq<0) return "";
+        text=text.substring(replyreq+6);
+        int readeq=text.indexOf("READ=");
+        if(readeq>=0) text=text.substring(0,readeq);
+        int writeeq=text.indexOf("WRITE=");
+        if(writeeq>=0)text= text.substring(0,writeeq);
+        int adminreq=text.indexOf("ADMIN=");
+        if(adminreq>=0) text=text.substring(0,adminreq);
+        return text;
+    }
+    private String getAdminReq()
+    {
+        if(readableText().length()==0) return "";
+        String text=readableText().toUpperCase();
+        int adminreq=text.indexOf("ADMIN=");
+        if(adminreq<0) return "";
+        text=text.substring(adminreq+6);
+        int readeq=text.indexOf("READ=");
+        if(readeq>=0) text=text.substring(0,readeq);
+        int writeeq=text.indexOf("WRITE=");
+        if(writeeq>=0)text= text.substring(0,writeeq);
+        int replyreq=text.indexOf("REPLY=");
+        if(replyreq>=0) text=text.substring(0,replyreq);
+        return text;
+    }
+	public void recoverEnvStats(){CMLib.flags().setReadable(this,true); super.recoverEnvStats();}
+}

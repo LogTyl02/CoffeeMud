@@ -1,0 +1,1269 @@
+package com.planet_ink.coffee_mud.Libraries;
+import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Areas.interfaces.*;
+import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
+import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
+import com.planet_ink.coffee_mud.Commands.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Exits.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Locales.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.Races.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+
+
+import java.util.*;
+
+/* 
+   Copyright 2000-2006 Bo Zimmerman
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+public class CoffeeShops extends StdLibrary implements ShoppingLibrary
+{
+    public String ID(){return "CoffeeShops";}
+    public ShopKeeper getShopKeeper(Environmental E)
+    {
+        if(E==null) return null;
+        if(E instanceof ShopKeeper) return (ShopKeeper)E;
+        Ability A=null;
+        for(int a=0;a<E.numEffects();a++)
+        {
+            A=E.fetchEffect(a);
+            if(A instanceof ShopKeeper)
+                return (ShopKeeper)A;
+        }
+        if(E instanceof MOB)
+        {
+            Item I=null;
+            MOB mob=(MOB)E;
+            for(int i=0;i<mob.inventorySize();i++)
+            {
+                I=mob.fetchInventory(i);
+                if(I instanceof ShopKeeper)
+                    return (ShopKeeper)I;
+                if(I!=null)
+                for(int a=0;a<I.numEffects();a++)
+                {
+                    A=I.fetchEffect(a);
+                    if(A instanceof ShopKeeper)
+                        return (ShopKeeper)A;
+                }
+            }
+        }
+        return null;
+    }
+
+    public Vector getAllShopkeepers(Room here, MOB notMOB)
+    {
+        Vector V=new Vector();
+        if(here!=null)
+        {
+            if(getShopKeeper(here)!=null) 
+                V.addElement(here);
+            Area A=here.getArea();
+            if(getShopKeeper(A)!=null)
+                V.addElement(A);
+            Vector V2=A.getParentsRecurse();
+            for(int v2=0;v2<V2.size();v2++)
+                if(getShopKeeper((Area)V2.elementAt(v2))!=null)
+                    V.addElement(V2.elementAt(v2));
+            
+            for(int i=0;i<here.numInhabitants();i++)
+            {
+                MOB thisMOB=here.fetchInhabitant(i);
+                if((thisMOB!=null)
+                &&(thisMOB!=notMOB)
+                &&(getShopKeeper(thisMOB)!=null)
+                &&((notMOB==null)||(CMLib.flags().canBeSeenBy(thisMOB,notMOB))))
+                    V.addElement(thisMOB);
+            }
+            for(int i=0;i<here.numItems();i++)
+            {
+                Item thisItem=here.fetchItem(i);
+                if((thisItem!=null)
+                &&(thisItem!=notMOB)
+                &&(getShopKeeper(thisItem)!=null)
+                &&(!CMLib.flags().isGettable(thisItem))
+                &&(thisItem.container()==null)
+                &&((notMOB==null)||(CMLib.flags().canBeSeenBy(thisItem,notMOB))))
+                    V.addElement(thisItem);
+            }
+        }
+        return V;
+    }
+
+    public String getViewDescription(Environmental E)
+    {
+        StringBuffer str=new StringBuffer("");
+        if(E==null) return str.toString();
+        str.append("Interested in "+E.name()+"?");
+        str.append(" Here is some information for you:");
+        str.append("\n\rLevel      : "+E.envStats().level());
+        if(E instanceof Item)
+        {
+            Item I=(Item)E;
+            str.append("\n\rMaterial   : "+CMStrings.capitalizeAndLower(RawMaterial.RESOURCE_DESCS[I.material()&RawMaterial.RESOURCE_MASK].toLowerCase()));
+            str.append("\n\rWeight     : "+I.envStats().weight()+" pounds");
+            if(I instanceof Weapon)
+            {
+                str.append("\n\rWeap. Type : "+CMStrings.capitalizeAndLower(Weapon.typeDescription[((Weapon)I).weaponType()]));
+                str.append("\n\rWeap. Class: "+CMStrings.capitalizeAndLower(Weapon.classifictionDescription[((Weapon)I).weaponClassification()]));
+            }
+            else
+            if(I instanceof Armor)
+            {
+                str.append("\n\rWear Info  : Worn on ");
+                for(int l=0;l<Item.WORN_CODES.length;l++)
+                {
+                    int wornCode=1<<l;
+                    if(CMLib.flags().wornLocation(wornCode).length()>0)
+                    {
+                        if(((I.rawProperLocationBitmap()&wornCode)==wornCode))
+                        {
+                            str.append(CMStrings.capitalizeAndLower(CMLib.flags().wornLocation(wornCode))+" ");
+                            if(I.rawLogicalAnd())
+                                str.append("and ");
+                            else
+                                str.append("or ");
+                        }
+                    }
+                }
+                if(str.toString().endsWith(" and "))
+                    str.delete(str.length()-5,str.length());
+                else
+                if(str.toString().endsWith(" or "))
+                    str.delete(str.length()-4,str.length());
+            }
+        }
+        str.append("\n\rDescription: "+E.description());
+        return str.toString();
+    }
+    
+    public boolean shownInInventory(Environmental product, MOB buyer)
+    {
+        if(!(product instanceof Item)) return true;
+        if(((Item)product).container()!=null) return false;
+        if(CMSecurity.isAllowed(buyer,buyer.location(),"CMDMOBS")) return true;
+        if(((Item)product).envStats().level()>buyer.envStats().level()) return false;
+        if(!CMLib.flags().canBeSeenBy(product,buyer)) return false;
+        return true;
+    }
+    
+    public double rawSpecificGoldPrice(Environmental product, 
+                                        int whatISell, 
+                                        double numberOfThem)
+    {
+        double price=0.0;
+        if(product instanceof Item)
+            price=((Item)product).value()*numberOfThem;
+        else
+        if(product instanceof Ability)
+        {
+            if(whatISell==ShopKeeper.DEAL_TRAINER)
+                price=CMLib.ableMapper().lowestQualifyingLevel(product.ID())*100;
+            else
+                price=CMLib.ableMapper().lowestQualifyingLevel(product.ID())*75;
+        }
+        else
+        if(product instanceof MOB)
+        {
+            Ability A=product.fetchEffect("Prop_Retainable");
+            if(A!=null)
+            {
+                if(A.text().indexOf(";")<0)
+                {
+                    if(CMath.isDouble(A.text()))
+                        price=CMath.s_double(A.text());
+                    else
+                        price=new Integer(CMath.s_int(A.text())).doubleValue();
+                }
+                else
+                {
+                    String s2=A.text().substring(0,A.text().indexOf(";"));
+                    if(CMath.isDouble(s2))
+                        price=CMath.s_double(s2);
+                    else
+                        price=new Integer(CMath.s_int(s2)).doubleValue();
+                }
+            }
+            if(price==0.0)
+                price=25.0*product.envStats().level();
+        }
+        else
+            price=CMLib.ableMapper().lowestQualifyingLevel(product.ID())*25;
+        return price;
+    }
+    
+    public double prejudiceValueFromPart(MOB customer, boolean sellTo, String part)
+    {
+        int x=part.indexOf("=");
+        if(x<0) return 0.0;
+        String sellorby=part.substring(0,x);
+        part=part.substring(x+1);
+        if(sellTo&&(!sellorby.trim().equalsIgnoreCase("SELL")))
+           return 0.0;
+        if((!sellTo)&&(!sellorby.trim().equalsIgnoreCase("BUY")))
+           return 0.0;
+        if(part.trim().indexOf(" ")<0)
+            return CMath.s_double(part.trim());
+        Vector V=CMParms.parse(part.trim());
+        double d=0.0;
+        boolean yes=false;
+        Vector VF=customer.fetchFactionRanges();
+        String align=CMLib.flags().getAlignmentName(customer);
+        String sex=customer.charStats().genderName();
+        for(int v=0;v<V.size();v++)
+        {
+            String bit=(String)V.elementAt(v);
+            if(CMath.s_double(bit)!=0.0)
+                d=CMath.s_double(bit);
+            if(bit.equalsIgnoreCase(customer.charStats().getCurrentClass().name() ))
+            { yes=true; break;}
+            if(bit.equalsIgnoreCase(customer.charStats().getCurrentClass().name(customer.charStats().getCurrentClassLevel()) ))
+            { yes=true; break;}
+            if(bit.equalsIgnoreCase(sex ))
+            { yes=true; break;}
+            if(bit.equalsIgnoreCase(customer.charStats().getMyRace().racialCategory()))
+            {   yes=true; break;}
+            if(bit.equalsIgnoreCase(align))
+            { yes=true; break;}
+            for(int vf=0;vf<VF.size();vf++)
+                if(bit.equalsIgnoreCase((String)V.elementAt(v)))
+                { yes=true; break;}
+        }
+        if(yes) return d;
+        return 0.0;
+
+    }
+    
+    public double prejudiceFactor(MOB customer, String factors, boolean sellTo)
+    {
+        factors=factors.toUpperCase();
+        if(factors.length()==0) 
+        {
+            factors=CMProps.getVar(CMProps.SYSTEM_PREJUDICE).trim();
+            if(factors.length()==0)
+                return 1.0;
+        }
+        if(factors.indexOf("=")<0)
+        {
+            if(CMath.s_double(factors)!=0.0)
+                return CMath.s_double(factors);
+            return 1.0;
+        }
+        int x=factors.indexOf(";");
+        while(x>=0)
+        {
+            String part=factors.substring(0,x).trim();
+            factors=factors.substring(x+1).trim();
+            double d=prejudiceValueFromPart(customer,sellTo,part);
+            if(d!=0.0) return d;
+            x=factors.indexOf(";");
+        }
+        double d=prejudiceValueFromPart(customer,sellTo,factors.trim());
+        if(d!=0.0) return d;
+        return 1.0;
+    }
+
+    public ShopKeeper.ShopPrice sellingPrice(MOB seller,
+                                             MOB buyer,
+                                             Environmental product,
+                                             ShopKeeper shop,
+                                             boolean includeSalesTax)
+    {
+        double number=1.0;
+        ShopKeeper.ShopPrice val=new ShopKeeper.ShopPrice();
+        if(product==null) return val;
+        int stockPrice=shop.getShop().stockPrice(product);
+        if(stockPrice<=-100)
+        {
+            if(stockPrice<=-1000)
+                val.experiencePrice=(stockPrice*-1)-1000;
+            else
+                val.questPointPrice=(stockPrice*-1)-100;
+            return val;
+        }
+        if(stockPrice>=0)
+            val.absoluteGoldPrice=new Integer(stockPrice).doubleValue();
+        else
+            val.absoluteGoldPrice=rawSpecificGoldPrice(product,shop.whatIsSold(),number);
+
+        if(buyer==null) 
+        {
+            if(val.absoluteGoldPrice>0.0)
+                val.absoluteGoldPrice=CMLib.beanCounter().abbreviatedRePrice(seller,val.absoluteGoldPrice);
+            return val;
+        }
+
+        double prejudiceFactor=prejudiceFactor(buyer,shop.prejudiceFactors(),false);
+        val.absoluteGoldPrice=CMath.mul(prejudiceFactor,val.absoluteGoldPrice);
+
+        // the price is 200% at 0 charisma, and 100% at 30
+        val.absoluteGoldPrice=val.absoluteGoldPrice
+                             +val.absoluteGoldPrice
+                             -CMath.mul(val.absoluteGoldPrice,CMath.div(buyer.charStats().getStat(CharStats.STAT_CHARISMA),30.0));
+        if(includeSalesTax)
+        {
+            double salesTax=getSalesTax(seller.getStartRoom(),seller);
+            val.absoluteGoldPrice+=((salesTax>0.0)?(CMath.mul(val.absoluteGoldPrice,CMath.div(salesTax,100.0))):0.0);
+        }
+        if(val.absoluteGoldPrice<=0.0) 
+            val.absoluteGoldPrice=1.0;
+        else
+            val.absoluteGoldPrice=CMLib.beanCounter().abbreviatedRePrice(seller,val.absoluteGoldPrice);
+        return val;
+    }
+
+    
+    public double devalue(ShopKeeper shop, Environmental product)
+    {
+        int num=shop.getShop().numberInStock(product);
+        if(num<=0) return 0.0;
+        double resourceRate=0.0;
+        double itemRate=0.0;
+        String s=shop.devalueRate();
+        if(s.length()==0) s=CMProps.getVar(CMProps.SYSTEM_DEVALUERATE);
+        Vector V=CMParms.parse(s.trim());
+        if(V.size()<=0)
+            return 0.0;
+        else
+        if(V.size()==1)
+        {
+            resourceRate=CMath.div(CMath.s_double((String)V.firstElement()),100.0);
+            itemRate=resourceRate;
+        }
+        else
+        {
+            itemRate=CMath.div(CMath.s_double((String)V.firstElement()),100.0);
+            resourceRate=CMath.div(CMath.s_double((String)V.lastElement()),100.0);
+        }
+        double rate=(product instanceof RawMaterial)?resourceRate:itemRate;
+        rate=rate*num;
+        if(rate>1.0) rate=1.0;
+        if(rate<0.0) rate=0.0;
+        return rate;
+    }
+    
+    public ShopKeeper.ShopPrice pawningPrice(MOB buyer,
+                                             Environmental product,
+                                             ShopKeeper shop)
+    {
+        double number=1.0;
+        if(product instanceof PackagedItems)
+        {
+            number=new Integer(((PackagedItems)product).numberOfItemsInPackage()).doubleValue();
+            product=((PackagedItems)product).getItem();
+        }
+        ShopKeeper.ShopPrice val=new ShopKeeper.ShopPrice();
+        if(product==null) 
+            return val;
+        int stockPrice=shop.getShop().stockPrice(product);
+        if(stockPrice<=-100) return val;
+
+        if(stockPrice>=0.0)
+            val.absoluteGoldPrice=new Integer(stockPrice).doubleValue();
+        else
+            val.absoluteGoldPrice=rawSpecificGoldPrice(product,shop.whatIsSold(),number);
+
+        if(buyer==null) return val;
+
+        double prejudiceFactor=prejudiceFactor(buyer,shop.prejudiceFactors(),true);
+        val.absoluteGoldPrice=CMath.mul(prejudiceFactor,val.absoluteGoldPrice);
+
+        //double halfPrice=Math.round(CMath.div(val,2.0));
+        // gets the shopkeeper a deal on junk.  Pays 5% at 3 charisma, and 50% at 30
+        double buyPrice=CMath.div(CMath.mul(val.absoluteGoldPrice,buyer.charStats().getStat(CharStats.STAT_CHARISMA)),60.0);
+        if(!(product instanceof Ability))
+            buyPrice=CMath.mul(buyPrice,1.0-devalue(shop,product));
+
+        // the price is 200% at 0 charisma, and 100% at 30
+        double sellPrice=val.absoluteGoldPrice
+                        +val.absoluteGoldPrice
+                        -CMath.mul(val.absoluteGoldPrice,CMath.div(buyer.charStats().getStat(CharStats.STAT_CHARISMA),30.0));
+
+        if(buyPrice>sellPrice)
+            val.absoluteGoldPrice=sellPrice;
+        else
+            val.absoluteGoldPrice=buyPrice;
+
+        if(val.absoluteGoldPrice<=0.0) 
+            val.absoluteGoldPrice=1.0;
+        return val;
+    }
+
+    
+    public double getSalesTax(Room homeRoom, MOB seller)
+    {
+        if((seller==null)||(homeRoom==null)) return 0.0;
+        Law theLaw=CMLib.utensils().getTheLaw(homeRoom,seller);
+        if(theLaw!=null)
+        {
+            String taxs=(String)theLaw.taxLaws().get("SALESTAX");
+            if(taxs!=null)
+                return CMath.s_double(taxs);
+        }
+        return 0.0;
+        
+    }
+
+    public boolean standardSellEvaluation(MOB seller,
+                                                 MOB buyer,
+                                                 Environmental product,
+                                                 ShopKeeper shop,
+                                                 double maxToPay,
+                                                 double maxEverPaid,
+                                                 boolean sellNotValue)
+    {
+        if((product!=null)
+        &&(shop.doISellThis(product))
+        &&(!(product instanceof Coins)))
+        {
+            if(seller.location()!=null)
+            {
+                int medianLevel=seller.location().getArea().getAreaIStats()[Area.AREASTAT_MEDLEVEL];
+                if(medianLevel>0)
+                {
+                    String range=CMParms.getParmStr(shop.prejudiceFactors(),"RANGE","0");
+                    int rangeI=0;
+                    if((range.endsWith("%"))&&(CMath.isInteger(range.substring(0,range.length()-1))))
+                    {
+                        rangeI=CMath.s_int(range.substring(0,range.length()-1));
+                        rangeI=(int)Math.round(CMath.mul(medianLevel,CMath.div(rangeI,100.0)));
+                    }
+                    else
+                    if(CMath.isInteger(range))
+                        rangeI=CMath.s_int(range);
+                    if((rangeI>0)
+                    &&((product.envStats().level()>(medianLevel+rangeI))
+                        ||(product.envStats().level()<(medianLevel-rangeI))))
+                    {
+                        CMLib.commands().postSay(seller,buyer,"I'm sorry, that's out of my level range.",true,false);
+                        return false;
+                    }
+                }
+            }
+            double yourValue=pawningPrice(buyer,product,shop).absoluteGoldPrice;
+            if(yourValue<2)
+            {
+                CMLib.commands().postSay(seller,buyer,"I'm not interested.",true,false);
+                return false;
+            }
+            if((sellNotValue)&&(yourValue>maxToPay))
+            {
+                if(yourValue>maxEverPaid)
+                    CMLib.commands().postSay(seller,buyer,"That's way out of my price range! Try AUCTIONing it.",true,false);
+                else
+                    CMLib.commands().postSay(seller,buyer,"Sorry, I can't afford that right now.  Try back later.",true,false);
+                return false;
+            }
+            if(product instanceof Ability)
+            {
+                CMLib.commands().postSay(seller,buyer,"I'm not interested.",true,false);
+                return false;
+            }
+            if((product instanceof Container)&&(((Container)product).hasALock()))
+            {
+                boolean found=false;
+                Vector V=((Container)product).getContents();
+                for(int i=0;i<V.size();i++)
+                {
+                    Item I=(Item)V.elementAt(i);
+                    if((I instanceof Key)
+                    &&(((Key)I).getKey().equals(((Container)product).keyName())))
+                        found=true;
+                }
+                if(!found)
+                {
+                    CMLib.commands().postSay(seller,buyer,"I won't buy that back unless you put the key in it.",true,false);
+                    return false;
+                }
+            }
+            if((product instanceof Item)&&(buyer.isMine(product)))
+            {
+                CMMsg msg2=CMClass.getMsg(buyer,product,CMMsg.MSG_DROP,null);
+                if(!buyer.location().okMessage(buyer,msg2))
+                    return false;
+            }
+            return true;
+        }
+        CMLib.commands().postSay(seller,buyer,"I'm sorry, I'm not buying those.",true,false);
+        return false;
+    }
+    public boolean standardBuyEvaluation(MOB seller,
+                                                MOB buyer,
+                                                Environmental product,
+                                                ShopKeeper shop,
+                                                boolean buyNotView)
+    {
+        if((product!=null)
+        &&(shop.getShop().doIHaveThisInStock("$"+product.Name()+"$",buyer,shop.whatIsSold(),(seller!=null)?seller.getStartRoom():null)))
+        {
+            if(buyNotView)
+            {
+                ShopKeeper.ShopPrice price=sellingPrice(seller,buyer,product,shop,true);
+                if((price.experiencePrice>0)&&(price.experiencePrice>buyer.getExperience()))
+                {
+                    CMLib.commands().postSay(seller,buyer,"You aren't experienced enough to buy "+product.name()+".",false,false);
+                    return false;
+                }
+                if((price.questPointPrice>0)&&(price.questPointPrice>buyer.getQuestPoint()))
+                {
+                    CMLib.commands().postSay(seller,buyer,"You don't have enough quest points to buy "+product.name()+".",false,false);
+                    return false;
+                }
+                if((price.absoluteGoldPrice>0.0)
+                &&(price.absoluteGoldPrice>CMLib.beanCounter().getTotalAbsoluteShopKeepersValue(buyer,seller)))
+                {
+                    CMLib.commands().postSay(seller,buyer,"You can't afford to buy "+product.name()+".",false,false);
+                    return false;
+                }
+            }
+            if(product instanceof Item)
+            {
+                if(((Item)product).envStats().level()>buyer.envStats().level())
+                {
+                    CMLib.commands().postSay(seller,buyer,"That's too advanced for you, I'm afraid.",true,false);
+                    return false;
+                }
+            }
+            if((product instanceof LandTitle)
+            &&((shop.whatIsSold()==ShopKeeper.DEAL_CLANDSELLER)||(shop.whatIsSold()==ShopKeeper.DEAL_CSHIPSELLER)))
+            {
+                Clan C=null;
+                if(buyer.getClanID().length()>0)C=CMLib.clans().getClan(buyer.getClanID());
+                if(C==null)
+                {
+                    CMLib.commands().postSay(seller,buyer,"I only sell to clans.",true,false);
+                    return false;
+                }
+                if((C.allowedToDoThis(buyer,Clan.FUNC_CLANPROPERTYOWNER)<0)&&(!buyer.isMonster()))
+                {
+                    CMLib.commands().postSay(seller,buyer,"You are not authorized by your clan to handle property.",true,false);
+                    return false;
+                }
+            }
+            if(product instanceof MOB)
+            {
+                if(buyer.totalFollowers()>=buyer.maxFollowers())
+                {
+                    CMLib.commands().postSay(seller,buyer,"You can't accept any more followers.",true,false);
+                    return false;
+                }
+                if((CMProps.getIntVar(CMProps.SYSTEMI_FOLLOWLEVELDIFF)>0)
+                &&(!CMSecurity.isAllowed(seller,seller.location(),"ORDER"))
+                &&(!CMSecurity.isAllowed(buyer,buyer.location(),"ORDER")))
+                {
+                    if(seller.envStats().level() > (buyer.envStats().level() + CMProps.getIntVar(CMProps.SYSTEMI_FOLLOWLEVELDIFF)))
+                    {
+                        buyer.tell(product.name() + " is too advanced for you.");
+                        return false;
+                    }
+                    if(seller.envStats().level() < (buyer.envStats().level() - CMProps.getIntVar(CMProps.SYSTEMI_FOLLOWLEVELDIFF)))
+                    {
+                        buyer.tell(product.name() + " is too inexperienced for you.");
+                        return false;
+                    }
+                }
+            }
+            if(product instanceof Ability)
+            {
+                if(shop.whatIsSold()==ShopKeeper.DEAL_TRAINER)
+                {
+                    MOB teacher=CMClass.getMOB("Teacher");
+                    if(!((Ability)product).canBeLearnedBy(teacher,buyer))
+                    {
+                        teacher.destroy();
+                        return false;
+                    }
+                    teacher.destroy();
+                }
+                else
+                if(buyNotView)
+                {
+                    Ability A=(Ability)product;
+                    if(A.canTarget(Ability.CAN_MOBS)){}
+                    else
+                    if(A.canTarget(Ability.CAN_ITEMS))
+                    {
+                        Item I=buyer.fetchWieldedItem();
+                        if(I==null) I=buyer.fetchFirstWornItem(Item.WORN_HELD);
+                        if(I==null)
+                        {
+                            CMLib.commands().postSay(seller,buyer,"You need to be wielding or holding the item you want this cast on.",true,false);
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        CMLib.commands().postSay(seller,buyer,"I don't know how to sell that spell.",true,false);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        CMLib.commands().postSay(seller,buyer,"I don't have that in stock.  Ask for my LIST.",true,false);
+        return false;
+    }
+    
+    
+    public String getListInventory(MOB seller, 
+                                          MOB buyer, 
+                                          Vector inventory,
+                                          int limit,
+                                          ShopKeeper shop)
+    {
+        StringBuffer str=new StringBuffer("");
+        int csize=0;
+        if(inventory.size()>0)
+        {
+            int totalCols=((shop.whatIsSold()==ShopKeeper.DEAL_LANDSELLER)
+                           ||(shop.whatIsSold()==ShopKeeper.DEAL_CLANDSELLER)
+                           ||(shop.whatIsSold()==ShopKeeper.DEAL_SHIPSELLER)
+                           ||(shop.whatIsSold()==ShopKeeper.DEAL_CSHIPSELLER))?1:2;
+            int totalWidth=60/totalCols;
+            String showPrice=null;
+            ShopKeeper.ShopPrice price=null;
+            Environmental E=null;
+            for(int i=0;i<inventory.size();i++)
+            {
+                E=(Environmental)inventory.elementAt(i);
+                if(shownInInventory(E,buyer))
+                {
+                    price=sellingPrice(seller,buyer,E,shop,true);
+                    if((price.experiencePrice>0)&&(((""+price.experiencePrice).length()+2)>(4+csize)))
+                        csize=(""+price.experiencePrice).length()-2;
+                    else
+                    if((price.questPointPrice>0)&&(((""+price.questPointPrice).length()+2)>(4+csize)))
+                        csize=(""+price.questPointPrice).length()-2;
+                    else
+                    {
+                        showPrice=CMLib.beanCounter().abbreviatedPrice(seller,price.absoluteGoldPrice);
+                        if(showPrice.length()>(4+csize))
+                            csize=showPrice.length()-4;
+                    }
+                }
+            }
+
+            String c="^x["+CMStrings.padRight("Cost",4+csize)+"] "+CMStrings.padRight("Product",totalWidth-csize);
+            str.append(c+((totalCols>1)?c:"")+"^.^N^<!ENTITY shopkeeper \""+seller.name()+"\"^>\n\r");
+            int colNum=0;
+            int rowNum=0;
+            String col=null;
+            for(int i=0;i<inventory.size();i++)
+            {
+                E=(Environmental)inventory.elementAt(i);
+
+                if(shownInInventory(E,buyer))
+                {
+                    price=sellingPrice(seller,buyer,E,shop,true);
+                    col=null;
+                    if(price.questPointPrice>0)
+                        col=CMStrings.padRight("["+price.questPointPrice+"qp",5+csize)+"] ^<SHOP^>"+CMStrings.padRight(E.name(),"^</SHOP^>",totalWidth-csize);
+                    else
+                    if(price.experiencePrice>0)
+                        col=CMStrings.padRight("["+price.experiencePrice+"xp",5+csize)+"] ^<SHOP^>"+CMStrings.padRight(E.name(),"^</SHOP^>",totalWidth-csize);
+                    else
+                        col=CMStrings.padRight("["+CMLib.beanCounter().abbreviatedPrice(seller,price.absoluteGoldPrice),5+csize)+"] ^<SHOP^>"+CMStrings.padRight(E.name(),"^</SHOP^>",totalWidth-csize);
+                    if((++colNum)>totalCols)
+                    {
+                        str.append("\n\r");
+                        rowNum++;
+                        if((limit>0)&&(rowNum>limit))
+                            break;
+                        colNum=1;
+                    }
+                    str.append(col);
+                }
+            }
+        }
+        if(str.length()==0)
+        {
+            if((shop.whatIsSold()!=ShopKeeper.DEAL_BANKER)
+            &&(shop.whatIsSold()!=ShopKeeper.DEAL_CLANBANKER)
+            &&(shop.whatIsSold()!=ShopKeeper.DEAL_CLANPOSTMAN)
+            &&(shop.whatIsSold()!=ShopKeeper.DEAL_POSTMAN))
+                return seller.name()+" has nothing for sale.";
+            return "";
+        }
+        double salesTax=getSalesTax(seller.getStartRoom(),seller);
+        return "\n\r"+str
+                +((salesTax<=0.0)?"":"\n\r\n\rPrices above include a "+salesTax+"% sales tax.")
+                +"^T";
+    }
+    
+    public String findInnRoom(InnKey key, String addThis, Room R)
+    {
+        if(R==null) return null;
+        String keyNum=key.getKey();
+        for(int d=0;d<Directions.NUM_DIRECTIONS;d++)
+        {
+            if((R.getExitInDir(d)!=null)&&(R.getExitInDir(d).keyName().equals(keyNum)))
+            {
+                if(addThis.length()>0)
+                    return addThis+" and to the "+(Directions.getDirectionName(d).toLowerCase());
+                return "to the "+(Directions.getDirectionName(d).toLowerCase());
+            }
+        }
+        return null;
+    }
+    
+    public MOB parseBuyingFor(MOB buyer, String message)
+    {
+        MOB mobFor=buyer;
+        if((message!=null)&&(message.length()>0)&&(buyer.location()!=null))
+        {
+            Vector V=CMParms.parse(message);
+            if(((String)V.elementAt(V.size()-2)).equalsIgnoreCase("for"))
+            {
+                String s=(String)V.lastElement();
+                if(s.endsWith(".")) s=s.substring(0,s.length()-1);
+                MOB M=buyer.location().fetchInhabitant("$"+s+"$");
+                if(M!=null) 
+                    mobFor=M;
+            }
+        }
+        return mobFor;
+    }
+    
+    public double transactPawn(MOB shopkeeper,
+                                      MOB pawner,
+                                      ShopKeeper shop,
+                                      Environmental product)
+    {
+        Environmental coreSoldItem=product;
+        Environmental rawSoldItem=product;
+        int number=1;
+        if(coreSoldItem instanceof PackagedItems)
+        {
+            coreSoldItem=((PackagedItems)rawSoldItem).getItem();
+            number=((PackagedItems)rawSoldItem).numberOfItemsInPackage();
+        }
+        if((coreSoldItem!=null)&&(shop.doISellThis(coreSoldItem)))
+        {
+            double val=pawningPrice(pawner,rawSoldItem,shop).absoluteGoldPrice;
+            String currency=CMLib.beanCounter().getCurrency(shopkeeper);
+            if(!(shopkeeper instanceof ShopKeeper))
+                CMLib.beanCounter().subtractMoney(shopkeeper,currency,val);
+            CMLib.beanCounter().giveSomeoneMoney(shopkeeper,pawner,currency,val);
+            pawner.recoverEnvStats();
+            pawner.tell(shopkeeper.name()+" pays you "+CMLib.beanCounter().nameCurrencyShort(shopkeeper,val)+" for "+rawSoldItem.name()+".");
+            if(rawSoldItem instanceof Item)
+            {
+                Vector V=null;
+                if(rawSoldItem instanceof Container)
+                    V=((Container)rawSoldItem).getContents();
+                ((Item)rawSoldItem).unWear();
+                ((Item)rawSoldItem).removeFromOwnerContainer();
+                if(V!=null)
+                for(int v=0;v<V.size();v++)
+                    ((Item)V.elementAt(v)).removeFromOwnerContainer();
+                shop.getShop().addStoreInventory(coreSoldItem,number,-1,shop);
+                if(V!=null)
+                for(int v=0;v<V.size();v++)
+                {
+                    Item item2=(Item)V.elementAt(v);
+                    if(!shop.doISellThis(item2)||(item2 instanceof Key))
+                        item2.destroy();
+                    else
+                        shop.getShop().addStoreInventory(item2,1,-1,shop);
+                }
+            }
+            else
+            if(product instanceof MOB)
+            {
+                MOB newMOB=(MOB)product.copyOf();
+                newMOB.setStartRoom(null);
+                Ability A=newMOB.fetchEffect("Skill_Enslave");
+                if(A!=null) A.setMiscText("");
+                newMOB.setLiegeID("");
+                newMOB.setClanID("");
+                shop.getShop().addStoreInventory(newMOB,shop);
+                ((MOB)product).setFollowing(null);
+                if((((MOB)product).baseEnvStats().rejuv()>0)
+                &&(((MOB)product).baseEnvStats().rejuv()<Integer.MAX_VALUE)
+                &&(((MOB)product).getStartRoom()!=null))
+                    ((MOB)product).killMeDead(false);
+                else
+                    ((MOB)product).destroy();
+            }
+            else
+            if(product instanceof Ability)
+            {
+
+            }
+            return val;
+        }
+        return Double.MIN_VALUE;
+    }
+    
+    public void transactMoneyOnly(MOB seller,
+                                         MOB buyer,
+                                         ShopKeeper shop,
+                                         Environmental product)
+    {
+        if((seller==null)||(seller.location()==null)||(buyer==null)||(shop==null)||(product==null))
+            return;
+        Room room=seller.location();
+        ShopKeeper.ShopPrice price=sellingPrice(seller,buyer,product,shop,true);
+        if(price.absoluteGoldPrice>0.0) 
+        {
+            CMLib.beanCounter().subtractMoney(buyer,CMLib.beanCounter().getCurrency(seller),price.absoluteGoldPrice);
+            double totalFunds=price.absoluteGoldPrice;
+            if(getSalesTax(seller.getStartRoom(),seller)!=0.0)
+            {
+                Law theLaw=CMLib.utensils().getTheLaw(room,seller);
+                Area A2=CMLib.utensils().getLegalObject(room);
+                if((theLaw!=null)&&(A2!=null))
+                {
+                    Environmental[] Treas=theLaw.getTreasuryNSafe(A2);
+                    Room treasuryR=(Room)Treas[0];
+                    Item treasuryItem=(Item)Treas[1];
+                    if(treasuryR!=null)
+                    {
+                        double taxAmount=totalFunds-sellingPrice(seller,buyer,product,shop,false).absoluteGoldPrice;
+                        totalFunds-=taxAmount;
+                        Coins COIN=CMLib.beanCounter().makeBestCurrency(CMLib.beanCounter().getCurrency(seller),taxAmount,treasuryR,treasuryItem);
+                        if(COIN!=null) COIN.putCoinsBack();
+                    }
+                }
+            }
+            if(seller.isMonster())
+            {
+                LandTitle T=CMLib.utensils().getLandTitle(seller.getStartRoom());
+                if((T!=null)&&(T.landOwner().length()>0))
+                {
+                    CMLib.beanCounter().modifyLocalBankGold(seller.getStartRoom().getArea(),
+                                                    T.landOwner(),
+                                                    CMLib.utensils().getFormattedDate(buyer)+": Deposit of "+CMLib.beanCounter().nameCurrencyShort(seller,totalFunds)+": Purchase: "+product.Name()+" from "+seller.Name(),
+                                                    CMLib.beanCounter().getCurrency(seller),
+                                                    totalFunds);
+                }
+            }
+        }
+        if(price.questPointPrice>0) buyer.setQuestPoint(buyer.getQuestPoint()-price.questPointPrice);
+        if(price.experiencePrice>0) CMLib.leveler().postExperience(buyer,null,null,-price.experiencePrice,false);
+        buyer.recoverEnvStats();
+    }
+    
+    public boolean purchaseItems(Item baseProduct,
+                                        Vector products,
+                                        MOB seller,
+                                        MOB mobFor)
+    {
+        if((seller==null)||(seller.location()==null)||(mobFor==null))
+            return false;
+        Room room=seller.location();
+        for(int p=0;p<products.size();p++)
+            room.addItemRefuse((Item)products.elementAt(p),Item.REFUSE_PLAYER_DROP);
+        CMMsg msg2=CMClass.getMsg(mobFor,baseProduct,seller,CMMsg.MSG_GET,null);
+        if((baseProduct instanceof LandTitle)||(room.okMessage(mobFor,msg2)))
+        {
+            room.send(mobFor,msg2);
+            if((baseProduct instanceof InnKey)&&(room!=null))
+            {
+                InnKey item =(InnKey)baseProduct;
+                String buf=findInnRoom(item, "", room);
+                if(buf==null) buf=findInnRoom(item, "upstairs", room.getRoomInDir(Directions.UP));
+                if(buf==null) buf=findInnRoom(item, "downstairs", room.getRoomInDir(Directions.DOWN));
+                if(buf!=null) CMLib.commands().postSay(seller,mobFor,"Your room is "+buf+".",true,false);
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    public boolean purchaseMOB(MOB product,
+                                      MOB seller,
+                                      ShopKeeper shop,
+                                      MOB mobFor)
+    {
+        if((seller==null)||(seller.location()==null)||(product==null)||(shop==null)||(mobFor==null))
+            return false;
+        product.baseEnvStats().setRejuv(Integer.MAX_VALUE);
+        product.recoverEnvStats();
+        product.setMiscText(product.text());
+        Ability slaveA=null;
+        if(shop.whatIsSold()==ShopKeeper.DEAL_SLAVES)
+        {
+            slaveA=product.fetchEffect("Skill_Enslave");
+            if(slaveA!=null) slaveA.setMiscText("");
+            else
+            if(!CMLib.flags().isAnimalIntelligence(product))
+            {
+                slaveA=CMClass.getAbility("Skill_Enslave");
+                if(slaveA!=null)
+                    product.addNonUninvokableEffect(slaveA);
+            }
+        }
+        product.bringToLife(seller.location(),true);
+        if(slaveA!=null)
+        {
+            product.setLiegeID("");
+            product.setClanID("");
+            product.setStartRoom(null);
+            slaveA.setMiscText(mobFor.Name());
+            product.text();
+        }
+        CMLib.commands().postFollow(product,mobFor,false);
+        if(product.amFollowing()==null)
+        {
+            mobFor.tell("You cannot accept seem to accept this follower!");
+            return false;
+        }
+        return true;
+    }
+    
+    public void purchaseAbility(Ability A, 
+                                       MOB seller,
+                                       ShopKeeper shop,
+                                       MOB mobFor)
+    {
+        if((seller==null)||(seller.location()==null)||(A==null)||(shop==null)||(mobFor==null))
+            return ;
+        Room room=seller.location();
+        if(shop.whatIsSold()==ShopKeeper.DEAL_TRAINER)
+        {
+            MOB teacher=CMClass.getMOB("Teacher");
+            A.teach(teacher,mobFor);
+            teacher.destroy();
+        }
+        else
+        {
+            if(seller.isMonster())
+            {
+                seller.curState().setMana(seller.maxState().getMana());
+                seller.curState().setMovement(seller.maxState().getMovement());
+            }
+            Object[][] victims=new Object[room.numInhabitants()][2];
+            for(int x=0;x>victims.length;x++)
+            { // save victim status
+                MOB M=room.fetchInhabitant(x);
+                if(M!=null){ victims[x][0]=M;victims[x][1]=M.getVictim();}
+            }
+            Vector V=new Vector();
+            if(A.canTarget(Ability.CAN_MOBS))
+            {
+                V.addElement("$"+mobFor.name()+"$");
+                A.invoke(seller,V,mobFor,true,0);
+            }
+            else
+            if(A.canTarget(Ability.CAN_ITEMS))
+            {
+                Item I=mobFor.fetchWieldedItem();
+                if(I==null) I=mobFor.fetchFirstWornItem(Item.WORN_HELD);
+                if(I==null) I=mobFor.fetchWornItem("all");
+                if(I==null) I=mobFor.fetchCarried(null,"all");
+                if(I!=null)
+                {
+                    V.addElement("$"+I.name()+"$");
+                    seller.addInventory(I);
+                    A.invoke(seller,V,I,true,0);
+                    seller.delInventory(I);
+                    if(!mobFor.isMine(I)) mobFor.addInventory(I);
+                }
+            }
+            if(seller.isMonster())
+            {
+                seller.curState().setMana(seller.maxState().getMana());
+                seller.curState().setMovement(seller.maxState().getMovement());
+            }
+            for(int x=0;x>victims.length;x++)
+                ((MOB)victims[x][0]).setVictim((MOB)victims[x][1]);
+        }
+    }
+    
+    public Vector addRealEstateTitles(Vector V, MOB buyer, int whatISell, Room myRoom)
+    {
+        if((myRoom==null)||(buyer==null)) return V;
+        Area myArea=myRoom.getArea();
+        if(((whatISell==ShopKeeper.DEAL_LANDSELLER)
+            ||(whatISell==ShopKeeper.DEAL_SHIPSELLER)
+            ||((whatISell==ShopKeeper.DEAL_CSHIPSELLER)&&(buyer.getClanID().length()>0))
+            ||((whatISell==ShopKeeper.DEAL_CLANDSELLER)&&(buyer.getClanID().length()>0)))
+        &&(myArea!=null))
+        {
+            String name=buyer.Name();
+            if((whatISell==ShopKeeper.DEAL_CLANDSELLER)||(whatISell==ShopKeeper.DEAL_CSHIPSELLER))
+                name=buyer.getClanID();
+            HashSet roomsHandling=new HashSet();
+            Hashtable titles=new Hashtable();
+            if((whatISell==ShopKeeper.DEAL_CSHIPSELLER)||(whatISell==ShopKeeper.DEAL_SHIPSELLER))
+            {
+                for(Enumeration r=CMLib.map().areas();r.hasMoreElements();)
+                {
+                    Area A=(Area)r.nextElement();
+                    if((A instanceof SpaceShip)
+                    &&(CMLib.flags().isHidden(A)))
+                    {
+                        boolean related=myArea.isChild(A)||A.isParent(myArea);
+                        if(!related)
+                            for(int p=0;p<myArea.getNumParents();p++)
+                            {
+                                Area P=myArea.getParent(p);
+                                if((P!=null)&&(P!=myArea)&&((P==A)||(A.isParent(P))||(P.isChild(A))))
+                                { related=true; break;}
+                            }
+                        if(related)
+                        {
+                            LandTitle LT=CMLib.utensils().getLandTitle(A);
+                            if(LT!=null) titles.put(A,LT);
+                        }
+                    }
+                }
+            }
+            else
+            for(Enumeration r=myArea.getProperMap();r.hasMoreElements();)
+            {
+                Room R=(Room)r.nextElement();
+                LandTitle A=CMLib.utensils().getLandTitle(R);
+                if((A!=null)&&(R.roomID().length()>0))
+                    titles.put(R,A);
+            }
+
+            for(Enumeration r=titles.keys();r.hasMoreElements();)
+            {
+                Environmental R=(Environmental)r.nextElement();
+                LandTitle A=(LandTitle)titles.get(R);
+                if(!roomsHandling.contains(R))
+                {
+                    if(R instanceof Area)
+                        roomsHandling.add(R);
+                    else
+                    {
+                        Vector V2=A.getPropertyRooms();
+                        for(int v=0;v<V2.size();v++)
+                            roomsHandling.add(V2.elementAt(v));
+                    }
+                    if((A.landOwner().length()>0)
+                    &&(!A.landOwner().equals(name))
+                    &&((!A.landOwner().equals(buyer.getLiegeID()))||(!buyer.isMarriedToLiege())))
+                        continue;
+                    boolean skipThisOne=false;
+                    if(R instanceof Room)
+                        for(int d=0;d<4;d++)
+                        {
+                            Room R2=((Room)R).getRoomInDir(d);
+                            LandTitle L2=null;
+                            if(R2!=null)
+                            {
+                                L2=(LandTitle)titles.get(R2);
+                                if(L2==null)
+                                { skipThisOne=false; break;}
+                            }
+                            else
+                                continue;
+                            if((L2.landOwner().equals(name))
+                            ||(L2.landOwner().equals(buyer.getLiegeID())&&(buyer.isMarriedToLiege())))
+                            { skipThisOne=false; break;}
+                            if(L2.landOwner().length()>0)
+                                skipThisOne=true;
+                        }
+                    if(skipThisOne) 
+                        continue;
+                    Item I=CMClass.getItem("GenTitle");
+                    if(R instanceof Room)
+                        ((LandTitle)I).setLandPropertyID(CMLib.map().getExtendedRoomID((Room)R));
+                    else
+                        ((LandTitle)I).setLandPropertyID(R.Name());
+                    if((((LandTitle)I).landOwner().length()>0)
+                    &&(!I.Name().endsWith(" (Copy)")))
+                        I.setName(I.Name()+" (Copy)");
+                    I.text();
+                    I.recoverEnvStats();
+                    if((A.landOwner().length()==0)
+                    &&(I.Name().endsWith(" (Copy)")))
+                        I.setName(I.Name().substring(0,I.Name().length()-7));
+                    V.addElement(I);
+                }
+            }
+        }
+        return V;
+    }
+    
+    public boolean ignoreIfNecessary(MOB mob, String ignoreMask, MOB whoIgnores)
+    {
+        if(ignoreMask.length()==0) ignoreMask=CMProps.getVar(CMProps.SYSTEM_IGNOREMASK);
+        if((ignoreMask.length()>0)&&(!CMLib.masking().maskCheck(ignoreMask,mob)))
+        {
+            mob.tell(whoIgnores,null,null,"<S-NAME> appear(s) to be ignoring you.");
+            return false;
+        }
+        return true;
+    }
+    
+    
+    public String storeKeeperString(int whatISell)
+    {
+        switch(whatISell)
+        {
+        case ShopKeeper.DEAL_ANYTHING:
+            return "*Anything*";
+        case ShopKeeper.DEAL_GENERAL:
+            return "General items";
+        case ShopKeeper.DEAL_ARMOR:
+            return "Armor";
+        case ShopKeeper.DEAL_MAGIC:
+            return "Miscellaneous Magic Items";
+        case ShopKeeper.DEAL_WEAPONS:
+            return "Weapons";
+        case ShopKeeper.DEAL_PETS:
+            return "Pets and Animals";
+        case ShopKeeper.DEAL_LEATHER:
+            return "Leather";
+        case ShopKeeper.DEAL_INVENTORYONLY:
+            return "Only my Inventory";
+        case ShopKeeper.DEAL_TRAINER:
+            return "Training in skills/spells/prayers/songs";
+        case ShopKeeper.DEAL_CASTER:
+            return "Caster of spells/prayers";
+        case ShopKeeper.DEAL_ALCHEMIST:
+            return "Potions";
+        case ShopKeeper.DEAL_INNKEEPER:
+            return "My services as an Inn Keeper";
+        case ShopKeeper.DEAL_JEWELLER:
+            return "Precious stones and jewellery";
+        case ShopKeeper.DEAL_BANKER:
+            return "My services as a Banker";
+        case ShopKeeper.DEAL_CLANBANKER:
+            return "My services as a Banker to Clans";
+        case ShopKeeper.DEAL_LANDSELLER:
+            return "Real estate";
+        case ShopKeeper.DEAL_CLANDSELLER:
+            return "Clan estates";
+        case ShopKeeper.DEAL_ANYTECHNOLOGY:
+            return "Any technology";
+        case ShopKeeper.DEAL_BUTCHER:
+            return "Meats";
+        case ShopKeeper.DEAL_FOODSELLER:
+            return "Foodstuff";
+        case ShopKeeper.DEAL_GROWER:
+            return "Vegetables";
+        case ShopKeeper.DEAL_HIDESELLER:
+            return "Hides and Furs";
+        case ShopKeeper.DEAL_LUMBERER:
+            return "Lumber";
+        case ShopKeeper.DEAL_METALSMITH:
+            return "Metal ores";
+        case ShopKeeper.DEAL_STONEYARDER:
+            return "Stone and rock";
+        case ShopKeeper.DEAL_SHIPSELLER:
+            return "Ships";
+        case ShopKeeper.DEAL_CSHIPSELLER:
+            return "Clan Ships";
+        case ShopKeeper.DEAL_SLAVES:
+            return "Slaves";
+        case ShopKeeper.DEAL_POSTMAN:
+            return "My services as a Postman";
+        case ShopKeeper.DEAL_CLANPOSTMAN:
+            return "My services as a Postman for Clans";
+        default:
+            return "... I have no idea WHAT I sell";
+        }
+    }
+
+    public boolean doISellThis(Environmental thisThang, ShopKeeper shop)
+    {
+        if(thisThang instanceof PackagedItems)
+            thisThang=((PackagedItems)thisThang).getItem();
+        if(thisThang==null) return false;
+        if(thisThang instanceof Coins) return false;
+        switch(shop.whatIsSold())
+        {
+        case ShopKeeper.DEAL_ANYTHING:
+            return true;
+        case ShopKeeper.DEAL_ARMOR:
+            return (thisThang instanceof Armor);
+        case ShopKeeper.DEAL_MAGIC:
+            return (thisThang instanceof MiscMagic);
+        case ShopKeeper.DEAL_WEAPONS:
+            return (thisThang instanceof Weapon)||(thisThang instanceof Ammunition);
+        case ShopKeeper.DEAL_GENERAL:
+            return ((thisThang instanceof Item)
+                    &&(!(thisThang instanceof Armor))
+                    &&(!(thisThang instanceof MiscMagic))
+                    &&(!(thisThang instanceof ClanItem))
+                    &&(!(thisThang instanceof Weapon))
+                    &&(!(thisThang instanceof Ammunition))
+                    &&(!(thisThang instanceof MOB))
+                    &&(!(thisThang instanceof RawMaterial))
+                    &&(!(thisThang instanceof Ability)));
+        case ShopKeeper.DEAL_LEATHER:
+            return ((thisThang instanceof Item)
+                    &&((((Item)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_LEATHER)
+                    &&(!(thisThang instanceof RawMaterial)));
+        case ShopKeeper.DEAL_PETS:
+            return ((thisThang instanceof MOB)&&(CMLib.flags().isAnimalIntelligence((MOB)thisThang)));
+        case ShopKeeper.DEAL_SLAVES:
+            return ((thisThang instanceof MOB)&&(!CMLib.flags().isAnimalIntelligence((MOB)thisThang)));
+        case ShopKeeper.DEAL_INVENTORYONLY:
+            return (shop.getShop().inBaseInventory(thisThang));
+        case ShopKeeper.DEAL_INNKEEPER:
+            return thisThang instanceof InnKey;
+        case ShopKeeper.DEAL_JEWELLER:
+            return ((thisThang instanceof Item)
+                    &&(!(thisThang instanceof Weapon))
+                    &&(!(thisThang instanceof MiscMagic))
+                    &&(!(thisThang instanceof ClanItem))
+                    &&(((((Item)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_GLASS)
+                    ||((((Item)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PRECIOUS)
+                    ||((Item)thisThang).fitsOn(Item.WORN_EARS)
+                    ||((Item)thisThang).fitsOn(Item.WORN_NECK)
+                    ||((Item)thisThang).fitsOn(Item.WORN_RIGHT_FINGER)
+                    ||((Item)thisThang).fitsOn(Item.WORN_LEFT_FINGER)));
+        case ShopKeeper.DEAL_ALCHEMIST:
+            return (thisThang instanceof Potion);
+        case ShopKeeper.DEAL_LANDSELLER:
+        case ShopKeeper.DEAL_CLANDSELLER:
+        case ShopKeeper.DEAL_SHIPSELLER:
+        case ShopKeeper.DEAL_CSHIPSELLER:
+            return (thisThang instanceof LandTitle);
+        case ShopKeeper.DEAL_ANYTECHNOLOGY:
+            return (thisThang instanceof Electronics);
+        case ShopKeeper.DEAL_BUTCHER:
+            return ((thisThang instanceof RawMaterial)
+                &&(((RawMaterial)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_FLESH);
+        case ShopKeeper.DEAL_FOODSELLER:
+            return (((thisThang instanceof Food)||(thisThang instanceof Drink))
+                    &&(!(thisThang instanceof RawMaterial)));
+        case ShopKeeper.DEAL_GROWER:
+            return ((thisThang instanceof RawMaterial)
+                &&(((RawMaterial)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_VEGETATION);
+        case ShopKeeper.DEAL_HIDESELLER:
+            return ((thisThang instanceof RawMaterial)
+                &&((((RawMaterial)thisThang).material()==RawMaterial.RESOURCE_HIDE)
+                ||(((RawMaterial)thisThang).material()==RawMaterial.RESOURCE_FEATHERS)
+                ||(((RawMaterial)thisThang).material()==RawMaterial.RESOURCE_LEATHER)
+                ||(((RawMaterial)thisThang).material()==RawMaterial.RESOURCE_SCALES)
+                ||(((RawMaterial)thisThang).material()==RawMaterial.RESOURCE_WOOL)
+                ||(((RawMaterial)thisThang).material()==RawMaterial.RESOURCE_FUR)));
+        case ShopKeeper.DEAL_LUMBERER:
+            return ((thisThang instanceof RawMaterial)
+                &&((((RawMaterial)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_WOODEN));
+        case ShopKeeper.DEAL_METALSMITH:
+            return ((thisThang instanceof RawMaterial)
+                &&(((((RawMaterial)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_METAL)
+                ||(((RawMaterial)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_MITHRIL));
+        case ShopKeeper.DEAL_STONEYARDER:
+            return ((thisThang instanceof RawMaterial)
+                &&((((RawMaterial)thisThang).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_ROCK));
+        }
+
+        return false;
+    }
+
+}
